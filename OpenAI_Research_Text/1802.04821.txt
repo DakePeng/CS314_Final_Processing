@@ -1,0 +1,1325 @@
+Evolved Policy Gradients
+Rein Houthooft1Richard Y. Chen1Phillip Isola1 2 3Bradly C. Stadie2Filip Wolski1
+Jonathan Ho1 2Pieter Abbeel1 2
+Abstract
+We propose a metalearning approach for learning
+gradient-based reinforcement learning (RL) algo-
+rithms. The idea is to evolve a differentiable loss
+function, such that an agent, which optimizes its
+policy to minimize this loss, will achieve high re-
+wards. The loss is parametrized via temporal con-
+volutions over the agent’s experience. Because
+this loss is highly ﬂexible in its ability to take
+into account the agent’s history, it enables fast
+task learning. Empirical results show that our
+evolved policy gradient algorithm (EPG) achieves
+faster learning on several randomized environ-
+ments compared to an off-the-shelf policy gra-
+dient method. We also demonstrate that EPG’s
+learned loss can generalize to out-of-distribution
+test time tasks, and exhibits qualitatively different
+behavior from other popular metalearning algo-
+rithms.
+1. Introduction
+When a human learns to solve a new control task, such as
+playing the violin, they immediately have a feel for what to
+try. At ﬁrst, they may try a quick, rough stroke, and, produc-
+ing a screech, will intuitively know this was the wrong thing
+to do. Just by listening to the sounds they produce, they will
+have a sense of whether or not they are making progress
+toward the goal. Effectively, humans have access to very
+well shaped internal reward functions, derived from prior
+experience on other motor tasks, or perhaps from listening
+to and playing other musical instruments (36; 49).
+In contrast, most current reinforcement learning (RL) agents
+approach each new task de novo. Initially, they have no
+notion of what actions to try out, nor which outcomes are
+desirable. Instead, they rely entirely on external reward
+signals to guide their initial behavior. Coming from such a
+blank slate, it is no surprise that RL agents take far longer
+than humans to learn simple skills (21).
+1OpenAI2UC Berkeley3MIT. Correspondence to: Rein
+Houthooft <rein.houthooft@openai.com>.
+Figure 1: High-level overview of our approach. The method
+consists of an inner and outer optimization loop. The inner
+loop (boxed) optimizes the agent’s policy against a loss
+provided by the outer loop, using gradient descent. The
+outer loop optimizes the parameters of the loss function,
+such that the optimized inner-loop policy achieves high
+performance on an arbitrary task, such as solving a control
+task of interest. The evolved loss Lcan be viewed as a
+surrogate whose gradient is used to update the policy, which
+is similar in spirit to policy gradients, lending the name
+“evolved policy gradients".
+Our aim in this paper is to devise agents that have a prior
+notion of what constitutes making progress on a novel task.
+Rather than encoding this knowledge explicitly through a
+learned behavioral policy, we encode it implicitly through a
+learned loss function. The end goal is agents that can use
+this loss function to learn quickly on a novel task.
+This approach can be seen as a form of metalearning, in
+which we learn a learning algorithm. Rather than mining
+rules that generalize across data points, as in traditional ma-
+chine learning, metalearning concerns itself with devising
+algorithms that generalize across tasks, by infusing prior
+knowledge of the task distribution (12).
+Our method consists of two optimization loops. In the inner
+loop, an agent learns to solve a task, sampled from a par-
+ticular distribution over a family of tasks. The agent learns
+to solve this task by minimizing a loss function provided
+by the outer loop. In the outer loop, the parameters of the
+loss function are adjusted so as to maximize the ﬁnal re-
+turns achieved after inner loop learning. Figure 1 provides a
+high-level overview of this approach.
+Although the inner loop can be optimized with stochastic
+gradient descent (SGD), optimizing the outer loop presents
+arXiv:1802.04821v2  [cs.LG]  29 Apr 2018Evolved Policy Gradients
+substantial difﬁculty. Each evaluation of the outer objective
+requires training a complete inner-loop agent, and this ob-
+jective cannot be written as an explicit function of the loss
+parameters we are optimizing over. Due to the lack of easily
+exploitable structure in this optimization problem, we turn
+to evolution strategies (ES) ( 35;46;16;37) as a blackbox
+optimizer. The evolved loss Lcan be viewed as a surrogate
+loss ( 43;44) whose gradient is used to update the policy,
+which is similar in spirit to policy gradients, lending the
+name “evolved policy gradients".
+In addition to encoding prior knowledge, the learned loss
+offers several advantages compared to current RL methods.
+Since RL methods optimize for short-term returns instead
+of accounting for the complete learning process, they may
+get stuck in local minima and fail to explore the full search
+space. Prior works add auxiliary reward terms that empha-
+size exploration ( 8;19;32;56;6;33) and entropy loss terms
+(31;42;15;26). These terms are often traded off using a
+separate hyperparameter that is not only task-dependent, but
+also dependent on which part of the state space the agent is
+visiting. As such, it is unclear how to include these terms
+into the RL algorithm in a principled way.
+Using ES to evolve the loss function allows us to optimize
+the true objective, namely the ﬁnal trained policy perfor-
+mance, rather than short-term returns. Our method also
+improves on standard RL algorithms by allowing the loss
+function to be adaptive to the environment and agent his-
+tory, leading to faster learning and the potential for learning
+without external rewards. EPG can in theory be combined
+with policy initialization metalearning algorithms, such as
+MAML ( 11), since EPG imposes no restriction on the policy
+it optimizes.
+There has been a ﬂurry of recent work on metalearning
+policies, e.g., ( 10;59;11;25), and it is worth asking why
+metalearn the loss as opposed to directly metalearning the
+policy? Our motivation is that we expect loss functions to
+be the kind of object that may generalize very well across
+substantially different tasks. This is certainly true of hand-
+engineered loss functions: a well-designed RL loss function,
+such as that in ( 45), can be very generically applicable,
+ﬁnding use in problems ranging from playing Atari games to
+controlling robots ( 45). In Section 4, we ﬁnd evidence that a
+loss learned by EPG can train an agent to solve a task outside
+the distribution of tasks on which EPG was trained. This
+generalization behavior differs qualitatively from MAML
+(11) and RL2(10), methods that directly metalearn policies,
+providing initial indication of the generalization potential
+of loss learning.
+Our contributions include the following:
+•Formulating a metalearning approach that learns a dif-
+ferentiable loss function for RL agents, called EPG.•Optimizing the parameters of this loss function via
+ES, overcoming the challenge that ﬁnal returns are not
+explicit functions of the loss parameters.
+•Designing a loss architecture that takes into account
+agent history via temporal convolutions.
+•Demonstrating that EPG produces a learned loss that
+can train agents faster than an off-the-shelf policy gra-
+dient method.
+•Showing that EPG’s learned loss can generalize to out-
+of-distribution test time tasks, exhibiting qualitatively
+different behavior from other popular metalearning
+algorithms.
+We set forth the notation in Section 2. Section 3 explains the
+main algorithm and Section 4 shows its results on several
+randomized continuous control environments. In Section 5,
+we compare our methods with the most related ideas in
+literature. We conclude this paper with a discussion in
+Section 6. An implementation of EPG is available at
+http://github.com/openai/EPG .
+2. Notation and Background
+We model reinforcement learning ( 54) as a Markov
+decision process (MDP), deﬁned as the tuple M=
+(S,A,T,R,p 0,γ), whereSandAare the state and ac-
+tion space. The transition dynamic T:S×A×S/mapsto→ R+
+determines the distribution of the next state st+1given the
+current state stand the action at.R:S×A/mapsto→ Ris the
+reward function and γ∈(0,1)is a discount factor. p0is
+the distribution of the initial state s0. An agent’s policy
+π:S/mapsto→A generates an action after observing a state.
+An episode τ∼ M with horizon His a sequence
+(s0,a0,r0,...,sH,aH,rH)of state, action, and reward at
+each timestep t. The discounted episodic return of τis
+deﬁned asRτ=/summationtextH
+t=0γtrt, which depends on the initial
+state distribution p0, the agent’s policy π, and the transition
+distribution T. The expected episodic return given agent’s
+policyπisEπ[Rτ]. The optimal policy π∗maximizes the
+expected episodic return
+π∗= arg max
+πEτ∼M,π[Rτ].
+In high-dimensional reinforcement learning settings, the
+policyπis often parametrized using a deep neural network
+πθwith parameters θ. The goal is to solve for θ∗that attains
+the highest expected episodic return
+θ∗= arg max
+θEτ∼M,πθ[Rτ]. (1)Evolved Policy Gradients
+This objective can be optimized via policy gradient methods
+(60;55) by stepping in the direction of E[Rτ∇logπ(τ)].
+This gradient can be transformed into a surrogate loss func-
+tion (43; 44)
+Lpg=E[Rτlogπ(τ)] =E/bracketleftBigg
+RτH/summationdisplay
+t=0logπ(at|st)/bracketrightBigg
+,(2)
+such that the gradient of Lpgequals the policy gradient.
+Through variance reduction techniques including actor-critic
+algorithms ( 20), the loss function Lpgis often changed into
+Lac=E/bracketleftbigg/summationdisplayH
+t=0A(st,at) logπ(at|st)/bracketrightbigg
+, (3)
+that is, the log-probability of taking action atat statestis
+multiplied by an advantage function A(st,at)(4).
+However, this procedure remains limited since it relies on a
+particular form of discounting the returns, and taking a ﬁxed
+gradient step with respect to the policy. Our approach learns
+a loss rather than using a hand-deﬁned function such as Lac.
+Thus, it may be able to discover more effective surrogates
+for making fast progress toward the ultimate objective of
+maximizing ﬁnal returns.
+3. Methodology
+Our metalearning approach aims to learn a loss function Lφ
+that outperforms the usual policy gradient surrogate loss
+(43). This loss function consists of temporal convolutions
+over the agent’s recent history. In addition to internalizing
+environment rewards, this loss could, in principle, have sev-
+eral other positive effects. For example, by examining the
+agent’s history, the loss could incentivize desirable extended
+behaviors, such as exploration. Further, the loss could per-
+form a form of system identiﬁcation, inferring environment
+parameters and adapting how it guides the agent as a func-
+tion of these parameters (e.g., by adjusting the effective
+learning rate of the agent).
+The loss function parameters φare evolved through ES and
+the loss trains an agent’s policy πθin an on-policy fashion
+via stochastic gradient descent.
+3.1. Metalearning Objective
+In our metalearning setup, we assume access to a distribu-
+tionp(M)over MDPs. Given a sampled MDP M, the inner
+loop optimization problem is to minimize the loss Lφwith
+respect to the agent’s policy πθ:
+θ∗= arg min
+θEτ∼M,πθ[Lφ(πθ,τ)]. (4)
+Note that this is similar to the usual RL objectives (Eqs.
+(1) (2) (3) ), except that we are optimizing a learned lossAlgorithm 1: Evolved Policy Gradients (EPG)
+1[Outer Loop] for epoche= 1,...,E do
+2 Sample /epsilon1v∼N(0,I)and calculate the loss
+parameter φ+σ/epsilon1vforv= 1,...,V
+3 Each worker w= 1,...,W gets assigned noise
+vector⌈wV/W⌉as/epsilon1w
+4 foreach worker w= 1,...,W do
+5 Sample MDPMw∼p(M)
+6 Initialize buffer with Nzero tuples
+7 Initialize policy parameter θrandomly
+8 [Inner Loop] for stept= 1,...,U do
+9 Sample initial state st∼p0ifMwneeds to
+be reset
+10 Sample action at∼πθ(·|st)
+11 Take actionatinMwand receivert,st+1,
+and termination ﬂag dt
+12 Add tuple (st,at,rt,dt)to buffer
+13 iftmodM= 0then
+14 With loss parameter φ+σ/epsilon1w,
+calculate losses Lifor steps
+i=t−M,...,t using buffer tuples
+i−N,...,i
+15 Sample minibatches mbfrom lastM
+steps shufﬂed, compute
+Lmb=/summationtext
+j∈mbLj, and update the
+policy parameter θand memory
+parameter (Eq. (6))
+16 InMw, using the trained policy πθ, sample
+several trajectories and compute the mean
+returnRw
+17 Update the loss parameter φ(Eq. (7))
+18Output: LossLφthat trainsπfrom scratch according
+to the inner loop scheme, on MDPs from p(M)
+Lφrather than directly optimizing the expected episodic
+return EM,πθ[Rτ]or other surrogate losses. The outer loop
+objective is to learn Lφsuch that an agent’s policy πθ∗
+trained with the loss function achieves high expected returns
+in the MDP distribution:
+φ∗= arg max
+φEM∼p(M)Eτ∼M,πθ∗[Rτ]. (5)
+3.2. Algorithm
+The ﬁnal episodic return Rτof a trained policy πθ∗cannot
+be represented as an explicit function of the loss function Lφ.
+Thus we cannot use gradient-based methods to directly solve
+Eq.(5). Our approach, summarized in Algorithm 1, relies
+on evolution strategies (ES) to optimize the loss function in
+the outer loop.
+As described by Salimans et al. ( 37), ES computes the gra-Evolved Policy Gradients
+Algorithm 2: EPG test-time training
+1[Input] : learned loss function Lφfrom EPG, MDPM
+2Initialize buffer with Nzero tuples
+3Initialize policy parameter θrandomly
+4forstept= 1,...,U do
+5 Sample initial state st∼p0ifMneeds to be reset
+6 Sample action at∼πθ(·|st)
+7 Take actionatinM, receivert,st+1, and
+termination ﬂag dt
+8 Add tuple (st,at,rt,dt)to buffer
+9 iftmodM= 0then
+10 Calculate losses Lifor stepsi=t−M,...,t
+using buffer tuples i−N,...,i
+11 Sample minibatches mbfrom lastMsteps
+shufﬂed, compute Lmb=/summationtext
+j∈mbLj, and
+update the policy parameter θand memory
+parameter (Eq. (6))
+12[Output] : A trained policy πθfor MDPM
+dient of a function F(φ)according to
+∇φE/epsilon1∼N(0,I)F(φ+σ/epsilon1) =1
+σE/epsilon1∼N(0,I)F(φ+σ/epsilon1)/epsilon1.
+Similar formulations also appear in prior works in-
+cluding ( 52;47;27). In our case, F(φ) =
+EM∼p(M)Eτ∼M,πθ∗[Rτ](Eq. (5)). Note that the depen-
+dence on φcomes through θ∗(Eq. (4)).
+Step by step, the algorithm works as follows. At the start
+of each epoch in the outer loop, for Winner-loop work-
+ers, we generate Vstandard multivariate normal vectors
+/epsilon1v∈N(0,I)with the same dimension as the loss function
+parameter φ, assigned to Vsets ofW/V workers. As such,
+for thew-th worker, the outer loop assigns the ⌈wV/W⌉-th
+perturbed loss function
+Lw=Lφ+σ/epsilon1vwherev=⌈wV/W⌉
+with perturbed parameters φ+σ/epsilon1vandσas the standard
+deviation.
+Given a loss function Lw,w∈{1,...,W}, from the outer
+loop, each inner-loop worker wsamples a random MDP
+from the task distribution, Mw∼p(M). The worker
+then trains a policy πθinMwoverUsteps of experience.
+Whenever a termination signal is reached, the environment
+resets with state s0sampled from the initial state distribution
+p0(Mw). EveryMsteps the policy is updated through SGD
+on the loss function Lw, using minibatches sampled from
+the stepst−M,...,t :
+θ←θ−δin·∇θLw/parenleftbig
+πθ,τt−M,...,t/parenrightbig
+. (6)
+At the end of the inner-loop training, each worker returns theﬁnal returnRw1to the outer loop. The outer-loop aggregates
+the ﬁnal returns{Rw}W
+w=1from all workers and updates the
+loss function parameter φas follows:
+φ←φ+δout·1
+Vσ/summationdisplayV
+v=1F(φ+σ/epsilon1v)/epsilon1v, (7)
+where
+F(φ+σ/epsilon1v) =R(v−1)∗W/V +1+···+Rv∗W/V
+W/V.
+As a result, each perturbed loss function Lvis evaluated on
+W/V randomly sampled MDPs from the task distribution
+using the ﬁnal returns. This achieves variance reduction by
+preventing the outer-loop ES update from promoting loss
+functions that are assigned to MDPs that consistently gen-
+erate higher returns. Note that the actual implementation
+calculates each loss function’s relative rank for the ES up-
+date. Algorithm 1 outputs a learned loss function Lφafter
+Eepochs of ES updates.
+At test time, we evaluate the learned loss function Lφpro-
+duced by Algorithm 1 on a test MDP Mby training a policy
+from scratch. The test-time training schedule is the same
+as the inner loop of Algorithm 1 and we summarize it in
+Algorithm 2.
+3.3. Architecture
+The agent is parametrized using an MLP policy with obser-
+vation spaceSand action spaceA. The loss has a memory
+unit to assist learning in the inner loop. This memory unit is
+a single-layer neural network to which an invariable input
+vector of ones is fed. As such, it is essentially a layer of bias
+terms. Since this network has a constant input vector, we can
+view its weights as a very simple form of memory to which
+the loss can write via emitting the right gradient signals. An
+experience buffer stores the agent’s Nmost recent expe-
+rience steps, in the form of a list of tuples (st,at,rt,dt),
+withdtthe trajectory termination ﬂag. Since this buffer is
+limited in the number of steps it stores, the memory unit
+might allow the loss function to store information over a
+longer period of time.
+The loss function Lφconsists of temporal convolutional
+layers which generate a context vector fcontext , and dense
+layers, which output the loss. The architecture is depicted
+in Figure 2.
+At stept, the dense layers output the loss Ltby taking a
+batch ofMsequential samples
+{si,ai,di,mem,fcontext,πθ(·|si)}t
+i=t−M, (8)
+whereM < N and we augment each transition with the
+memory output mem , a context vector fcontext generated
+1More speciﬁcally, the average return over 3sampled trajecto-
+ries using the ﬁnal policy for worker w.Evolved Policy Gradients
+Figure 2: Architecture of a loss computed for timestep t
+within a batch of Msequential samples (from t−Mtot),
+using temporal convolutions over a buffer of size N(from
+t−Ntot), withM≤N: dense net on the bottom is the
+policyπ(s), taking as input the observations (orange), while
+outputting action probabilities (green). The green block on
+the top represents the loss output. Gray blocks are evolved,
+yellow blocks are updated through SGD.
+from the loss’s temporal convolutional layers, and the policy
+distribution πθ(·|si). In continuous action space, πθis a
+Gaussian policy, i.e., πθ(·|si) =N(·;µ(si;θ0),Σ), with
+µ(si;θ0)the MLP output and Σa learnable parameter vec-
+tor. The policy parameter vector is deﬁned as θ= [θ0,Σ].
+To generate the context vector, we ﬁrst augment each transi-
+tion in the buffer with the output of the memory unit mem
+and the policy distribution πθ(·|si)to obtain a set
+{si,ai,di,mem,πθ(·|si)}t
+i=t−N. (9)
+We stack these items sequentially into a matrix and the
+temporal convolutional layers take it as input and output the
+context vector fcontext . The memory unit’s parameters are
+updated via gradient descent at each inner-loop update (Eq.
+(6)).
+Note that both the temporal convolution layers and the
+dense layers do not observe the environment rewards di-
+rectly. However, in cases where the reward cannot be fully
+inferred from the environment, such as the DirectionalHop-
+per environment we will examine in Section 4.2, we add
+rewardsrito the set of inputs in Eqs. (8)and(9). In fact,any information that can be obtained from the environment
+could be added as an input to the loss function, e.g., ex-
+ploration signals, the current timestep number, etc, and we
+leave further such extensions as future work.
+In practice, to bootstrap the learning process, we add to Lφ
+a guidance policy gradient surrogate loss signal Lpg, such as
+the REINFORCE ( 60) or PPO ( 45) surrogate loss function,
+making the total loss
+ˆLφ= (1−α)Lφ+αL pg, (10)
+and annealαfrom 1to0over a ﬁnite number of outer-
+loop epochs. As such, learning is ﬁrst derived mostly from
+the well-structured Lpg, while over time Lφtakes over and
+drives learning completely after αhas been annealed to 0.
+4. Experiments
+We apply our method to several randomized continuous con-
+trol MuJoCo environments ( 5;34;9), namely RandomHop-
+per and RandomWalker (with randomized gravity, friction,
+body mass, and link thickness), RandomReacher (with ran-
+domized link lengths), DirectionalHopper and Directional-
+HalfCheetah (with randomized forward/backward reward
+function), GoalAnt (reward function based on the random-
+ized target location), and Fetch (randomized target location).
+We describe these environments in detail in Appendix A.
+These environments are chosen because they require the
+agent to identify a randomly sampled environment at test
+time via exploratory behavior. Examples of the randomized
+Hopper environments are shown in Figure 4 and the Fetch
+environment in Figure 3. The plots in this section show the
+mean value of 20test-time training curves as a solid line,
+while the shaded area represents the interquartile range. The
+dotted lines plot 5randomly sampled curves.
+Figure 3: Examples of learning to reach random targets in
+the Fetch environment
+Implementation details In our experiments, the temporal
+convolutional layers of the loss function has 3layers. The
+ﬁrst layer has a kernel size of 8, stride of 7, and outputs 10
+channels. The second layer has a kernel of 4, stride of 2,
+and outputs 10channels. The third layer is fully-connected
+with32output units. Leaky ReLU activation is applied to
+each convolutional layer. The fully-connected componentEvolved Policy Gradients
+Figure 4: Example of learning to hop forward from a ran-
+domly initialized policy in RandomHopper environments
+with randomized morphology and physics parameters. Each
+row is a different environment randomization, while from
+left to right, trajectories are recorded as learning progresses.
+takes as input the trajectory features from the convolutional
+component concatenated with state, action, termination sig-
+nal, and policy output, as well as reward in experiments
+in which reward is observed. It has 1hidden layer with
+16hidden units and leaky ReLU activation, followed by
+an output layer. The buffer size is N∈{512,1024}. The
+agent’s MLP policy has 2hidden layers of 64units with
+tanh activation. The memory unit is a 32-unit single layer
+withtanh activation.
+We useW= 256 inner-loop workers in Algorithm 1, com-
+bined withV= 64 ES noise vectors. The loss function
+is evolved over 5000 epochs, with α, as in Eq. (10), an-
+nealed linearly from 1to0over the ﬁrst 500epochs. The
+off-the-shelf PG algorithm (PPO) was moderately tuned to
+perform well on these tasks, however, it is important to keep
+in mind that these methods inherently have trouble opti-
+mizing when the number of samples drawn for each policy
+update batch is low. EPG’s inner loop update frequency
+is set toM∈{32,64,128}and the inner loop length is
+U∈{64×M,128×M,256×M,512×M}. At every
+EPG inner loop update, the policy and memory parame-
+ters are updated by the learned loss function using shufﬂed
+minibatches of size 32within each set of Mmost recent
+transition steps in the replay buffer, going over each step
+exactly once. We tabulate the hyperparameters for each
+randomized environment in Table 1 in Appendix C.
+Normalization according to a running mean and standard
+deviation were applied to the observations, actions, and
+rewards for each EPG inner loop worker independently (Al-
+gorithm 1) and for test-time training (Algorithm 2). Adam
+(18) is used for the EPG inner loop optimization and test-time training with β1= 0.9andβ2= 0.999, while the
+outer loop ES gradients are modiﬁed by Adam with β1= 0
+andβ2= 0.999(which means momentum has been turned
+off) before updating the loss function. Furthermore, L2-
+regularization over the loss function parameters with coef-
+ﬁcient 0.001is added to outer loop objective. The inner
+loop step size is ﬁxed to 10−3, while the outer loop step size
+is annealed linearly from 10−2to10−3over the ﬁrst 2000
+epochs.
+4.1. Performance
+We compare test-time training performance using the EPG
+loss function, Algorithm 2, against an off-the-shelf policy
+gradient method, PPO ( 45). Figures 5, 6, 7, and 11 show
+learning curves for these two methods on the RandomHop-
+per, RandomWalker, RandomReacher, and Fetch environ-
+ments respectively at test time. The top plot shows the
+episodic return w.r.t. the number of environment steps taken
+so far. The bottom plot shows how much the policy changes
+at every update by plotting the KL-divergence between the
+policy distributions before and after every update, w.r.t. the
+number of updates so far.
+In all of these environments, the PPO agent learns by observ-
+ing reward signals whereas at test time, the EPG agent does
+not observe rewards (note that at test time, αin Eq. (10)
+equals 0). Observing rewards is not needed in EPG, since
+any piece of information the agent encounters forms an input
+to the EPG loss function. As long as the agent can identify
+which task to solve within the distribution, it does not matter
+whether this identiﬁcation is done through observations or
+rewards. Keep in mind, however, that the rewards were
+used in the ES objective function during the EPG evolution
+phase.
+In all experiments, EPG agents learn more quickly and
+obtain higher returns compared to PPO agents, as expected,
+since the EPG loss function is able to tailor itself to the
+environment distribution it is metatrained on. This indicates
+that our method generates an objective that is more effective
+at training agents, within these task distributions, than an
+off-the-shelf on-policy policy gradient method. This is true
+even though the learned loss does not observe rewards at
+test time. This demonstrates the potential to use EPG when
+rewards are only available at training time, for example, if a
+system were trained in simulation but deployed in the real
+world where reward signals are hard to measure.
+The correlation between the gradients of our learned loss
+and the PPO objective is around ρ= 0.5(Spearman’s rank
+correlation coefﬁcient) for the environments tested. This
+indicates that the gradients produced by the learned loss are
+related to, but different from, those produced by the PPO
+objective.Evolved Policy Gradients
+Figure 5: RandomHopper test-time
+training over 128(policy updates)×64
+(update frequency) = 8196 timesteps:
+PPO vs no-reward EPG
+Figure 6: RandomWalker test-time
+training over 256 (policy updates)
+×128 (update frequency) = 32768
+timesteps: PPO vs no-reward EPG
+Figure 7: RandomReacher test-time
+training over 512(policy updates)×128
+(update frequency) = 65536 timesteps:
+PG vs no-reward EPG.
+Figure 8: DirectionalHopper environment: each Hopper environment randomly
+decides whether to reward forward or backward hopping. The agent needs to
+identify whether to jump forward or backwards: PPO vs EPG. Here we can
+clearly see exploratory behavior, indicated by the negative spikes in the reward
+curve, the loss forces the policy to try out backwards behavior. Each subplot
+column corresponds to a different randomization of the environment.
+Figure 9: Comparison with MAML
+(single gradient step after metalearn-
+ing a policy initialization) on the Direc-
+tionalHalfCheetah environment from
+Finn et al. (11) (Fig. 5)Evolved Policy Gradients
+Figure 10: GoalAnt test-time training
+over512(policy updates)×32(update
+frequency) = 16384 timesteps: PPO
+vs EPG
+Figure 11: Fetch reaching environ-
+ment learning over 256 (policy up-
+dates)×32(update frequency) = 8192
+timesteps: PPO vs no-reward EPG
+Figure 12: Transferring EPG (met-
+alearned using 128policy updates on
+RandomHopper) to 1536 updates at
+test time: random policy initialization
+(A), initialization by sampled previous
+policies (B)
+Figures 8, 9, and 10 show experiments in which a signaling
+ﬂag is required to identify the environment. Generally, this
+is done through a reward function or an observation ﬂag,
+which is why EPG takes the reward as input in case the
+state space is partially-observed. Similar to the previous ex-
+periments, EPG signiﬁcantly outperforms PPO on the task
+distribution it is metatrained on. Speciﬁcally, in Figure 9,
+we compare EPG with both MAML (data from ( 11)) and
+RL2(10). This experiment shows that, at least in this exper-
+imental setup, starting from a random policy initialization
+can bring as much beneﬁt as learning a good policy initial-
+ization (MAML). In Section 4.2, we will investigate what
+the effect of evolving the policy initialization together with
+the loss parameters is. When comparing EPG to RL2(a
+method that learns a recurrent policy that does not reset the
+internal state upon trajectory resets), we see that RL2solves
+the DirectionalHalfCheetah task almost instantly through
+system identiﬁcation. By learning both the algorithm and
+the policy initialization simultaneously, it is able to signif-
+icantly outperform both MAML and EPG. However, this
+comes at the cost of generalization power, as we will discuss
+in Section 4.3.
+4.2. Analysis
+In this section, we ﬁrst analyze whether EPG produces
+a loss function that encourages exploration and adaptivepolicy updates during test-time training. Next, we evaluate
+the effect of evolving the policy initialization.
+Learning exploratory behavior Without additional ex-
+ploratory incentives, PG methods lead to suboptimal poli-
+cies. To understand whether EPG is able to train agents that
+explore, we test our method and PPO on the Directional-
+Hopper and GoalAnt environments. In DirectionalHopper,
+each sampled Hopper environment either rewards the agent
+for forward or backward hopping. Note that without observ-
+ing the reward, the agent cannot infer whether the Hopper
+environment desires forward or backward hopping. Thus
+we augment the environment reward to the input batches of
+the loss function in this setting.
+Figure 8 shows learning curves of both PPO agents and
+agents trained with the learned loss in the DirectionalHopper
+environment. The learning curves give indication that the
+learned loss is able to train agents that exhibit exploratory
+behavior. We see that in most instances, PPO agents stag-
+nate in learning, while agents trained with our learned loss
+manage to explore both forward and backward hopping and
+eventually hop in the correct direction. Figure 8 (right)
+demonstrates the qualitative behavior of our agent during
+learning and Figure 14 visualizes the exploratory behavior.
+We see that the hopper ﬁrst explores one hopping direction
+before learning to hop backwards.Evolved Policy Gradients
+(a) RandomWalker
+ (b) DirectionalHalfCheetah
+ (c) GoalAnt
+Figure 13: Effect of evolving the policy initialization (+I) on various randomized environments. test-time training curves
+with evolved policy initialization start at the same return value as those without evolved initialization. This is consistent with
+MAML trained on a wide task distribution (Figure 5 of (11)).
+Figure 14: Example of learning to hop backward from a
+randomly initialized policy in a DirectionalHopper environ-
+ment. From left to right, trajectories are recorded as learning
+progresses.
+Figure 15: Trajectories sampled from test-time training on
+two sampled GoalAnt environments: the Ant learns how to
+explore various directions before going to the correct target.
+Lighter colors represent initial trajectories, darker colors are
+later trajectories, according to the agent’s learning process.
+The GoalAnt environment randomizes the location of the
+goal. We augment the goal location to the input batches of
+the loss function. Figure 15 demonstrates the exploratory
+behavior of a learning ant trained by EPG. We see that the
+ant ﬁrst learns to walk and explore various directions, before
+ﬁnally converging on the correct goal location. The ant
+ﬁrst explores in various directions, including the opposite
+direction of the target location. However, it quickly ﬁgures
+out in which quadrant to explore, before it fully learns the
+correct direction to walk in.
+Learning adaptive policy updates PG methods such as
+REINFORCE ( 60) suffer from unstable learning, such thata large learning step size leads to policy crashing during
+learning. To encourage smooth policy updates, methods
+such as TRPO ( 44) and PPO ( 45) were proposed to limit
+the distributional change from each policy update, through
+a hyperparameter constraining the KL-divergence between
+the policy distributions before and after each update. We
+demonstrate that EPG produces learned loss that adaptively
+scales the gradient updates.
+Figure 16: EPG on the RandomHopper environment: the
+KL-divergence between the policy before and after an up-
+date at the ﬁrst epoch (left) vs the ﬁnal epoch (right), w.r.t
+the number of updates so far, for a single inner loop run.
+These curves are generated with α= 0in Eq. (10).
+Figure 16 shows the KL-divergence between policies from
+one update to the next during the course of training in Ran-
+domHopper, using a randomly initialized loss (left) versus a
+learned loss produced by Algorithm 1 (right). With a learned
+loss function, the policy updates tend to shift the policy dis-
+tribution less on each step, but sometimes produce sudden
+changes, indicated by the spikes. These spikes are highly
+noticeable in Figure 22 of Appendix B, in which we plot
+individual test-time training curves for several randomized
+environments. The loss function has evolved in such a way
+to adapt its gradient magnitude to the current agent state:
+for example in the DirectionalHalfCheetah experiments, the
+agent ﬁrst ramps up its velocity in one direction (visible by
+a increasing KL-divergence) until it realizes whether it isEvolved Policy Gradients
+(a)2layers of 256 tanh units
+ (b)2layers of 64ReLU units
+ (c)4layers of 64 tanh units
+Figure 17: Transferring EPG (metalearned using 2-layer 64 tanh -unit policies on RandomWalker as in Figure 6) to policies
+of unseen conﬁgurations at test time
+going in the right/wrong direction. Then it either further
+ramps up the velocity through stronger gradients, or emits
+a turning signal via a strong gradient spike (e.g., visible by
+the spikes in Figure 22 (a) in column three).
+In other experiments, such as Figures 8, 9, and 10, we see
+a similar pattern. Based on the agent’s learning history,
+the gradient magnitudes are scaled accordingly. Often the
+gradient will be small initially, and it gets increasingly larger
+the more environment information it has encountered.
+Effect of evolving policy initialization Prior works such
+as MAML ( 11) metalearn the policy initialization over a task
+distribution. While our proposed method, EPG, evolves the
+loss function parameters, we can also augment Algorithm 1
+with simultaneously evolving the policy initialization in
+the ES outer loop. We investigate the beneﬁts of evolving
+the policy initialization on top of EPG and PPO on our
+randomized environments. Figure 13 shows the compari-
+son between EPG, EPG with evolved policy initialization
+(EPG+I), PPO, and PPO with evolved policy initialization
+(PPO+I). Evolving the policy initialization seems to help the
+most when the environments require little exploration, such
+as RandomWalker. However, the initialization plays a far
+less important role in DirectionalHalfCheetah and especially
+the GoalAnt environment. Hence the smaller performance
+difference between EPG and EPG+I.
+Another interesting observation is that evolving the policy
+initialization, together with the EPG loss function (EPG+I),leads to qualitatively different behavior than PPO+I. In
+PPO+I, the initialization enables fast learning initially, be-
+fore the return curves saturate. Obtaining a policy initializa-
+tion that performs well without learning updates was impos-
+sible, since there is no single initialization that performs well
+for all tasksMsampled from the task distribution p(M).
+In the EPG case however, we see that the return curves are
+often lower initially, but higher at the end of learning. By
+feeding the ﬁnal return value as the objective function to
+the ES outer loop, the algorithm is able to avoid myopic
+return optimization. EPG+I sets the policy up for initial
+exploratory behavior which, although not beneﬁcial in the
+short term, improves ultimate agent behavior.
+4.3. Generalization
+Key components of Algorithm 1 include inner-loop training
+horizonU, the agent’s policy architecture πθ, and the task
+distribution p(M). In this section, we investigate the test-
+time generalization properties of EPG: generalization to
+longer training horizons, to different policy architectures,
+and to out-of-distribution tasks.
+Longer training horizons We evaluate the effect of trans-
+ferring to longer agent training periods at test time on the
+RandomHopper environment by increasing the test-time
+training steps Uin Algorithm 2 beyond the inner-loop train-
+ing stepsUof Algorithm 1. Figure 12 (A) shows that
+the learning curve declines and eventually crashes past theEvolved Policy Gradients
+(a) Task illustration
+(b) Right direction (as metatrained)
+ (c) Left direction (generalization)
+Figure 18: Generalization in the GoalAnt experiment: the ant has only been metatrained to reach target on the positive
+x-axis (its right side). Can it generalize to targets on the negative x-axis (its left side)?
+train-time horizon, which demonstrates that Algorithm 1
+has limited generalization beyond EPG’s inner-loop train-
+ing steps. However, we can overcome this limitation by
+initializing each inner-loop policy with randomly sampled
+policies that have been obtained by inner-loop training in
+past epochs. Figure 12 (B) illustrates continued learning
+past the train-time horizon, validating that this modiﬁcation
+effectively makes the learned loss function robust to longer
+training length at test time.
+Different policy architectures We evaluate EPG’s trans-
+fer to different policy architectures by varying the number
+of hidden layers, the activation function, and hidden units
+of the agent’s policy at test time (Algorithm 2), while keep-
+ing the agent’s policy ﬁxed at 2-layer with 64 tanh units
+during training time (Algorithm 1) on the RandomWalker
+environment. The test-time training curves on varied pol-
+icy architectures are shown in Figure 17. Compared to the
+learning curve Figure 6 with the same train-time and test-
+time policy architecture, the transfer performance is inferior.
+However, we still see that EPG produces a learned loss func-
+tion that generalizes to policies other than it was trained on,
+achieving non-trivial walking behavior.
+Out-of-distribution task learning We evaluate general-
+ization to out-of-distribution task learning on the GoalAnt
+environment. During metatraining, goals are randomly sam-
+pled on the positive x-axis (ant walking to the right) and
+at test time, we sample goals from the negative x-axis (ant
+walking to the left). Achieving generalization to the left side
+is not trivial, since it may be easy for a metalearner to overﬁt
+to the task metatraining distribution. Figure 18 (a) illustrates
+this generalization task. We compare the performance of
+EPG against MAML ( 11) and RL2(10). Since PPO is not
+metatrained, there is no difference between both directions.
+Therefore, the performance of PPO is the same as shown in
+Figure 10.
+First, we evaluate all metalearning methods’ performancewhen the test-time task is sampled from the training-time
+task distribution. Figure 18 (b) shows the test-time training
+curve of both RL2and EPG when the test-time goals are
+sampled from the positive x-axis. As expected, RL2solves
+this task extremely fast, since it couples both the learning al-
+gorithm and the policy. EPG performs very well on this task
+as well, learning an effective policy from scratch (random
+initialization) in 8192 steps, with ﬁnal performance match-
+ing that of RL2. MAML achieves approximately the same
+ﬁnal performance after taking a single SGD step (based on
+8192 sampled steps).
+Next, we look at the generalization setting with test-time
+goals sampled from the negative x-axis. Figure 18 (c) dis-
+plays the test-time training curves of both methods. RL2
+seems to have completely overﬁt to the task distribution, it
+has not succeeded in learning a general learning algorithm.
+Note that, although the RL2agent still walks in the wrong
+direction, it does so at a lower speed, indicating that it no-
+tices a deviation from the expected reward signal. When
+looking at MAML, we see that MAML has also overﬁt to
+the metatraining distribution, resulting in a walking speed in
+the wrong direction similar to the non-generalization setting.
+The plot also depicts the result of performing 10gradient
+updates from the MAML init, denoted MAML10 (note that
+each gradient update uses a batch of 8192 steps). With
+multiple gradient steps, MAML is able to outperform RL2,
+consistent with ( 12), but still learns at a far slower rate than
+EPG (in terms of number of timesteps of experience re-
+quired). MAML can achieve this because it uses a standard
+PG learning algorithm to make progress beyond its init, and
+therefore enjoys the generalization property of generic PG
+methods.
+In contrast, EPG evolves a loss function that trains agents
+to quickly reach goals sampled from negative x-axis, never
+seen during metatraining. This demonstrates rudimentary
+generalization properties, as may be expected from learning
+a loss function that is decoupled from the policy. Figure 15
+also shows trajectories sampled during the EPG learningEvolved Policy Gradients
+process for this exact experimental setup.2
+5. Relation to Existing Literature
+The concept of learning an algorithm for learning is quite
+general, and hence there exists a large body of somewhat
+disconnected literature on the topic.
+To begin with, there are several relevant and recent publica-
+tions in the metalearning literature ( 11;10;59;25). In ( 11),
+an algorithm named MAML is introduced. MAML treats
+the metalearning problem as in initialization problem. More
+speciﬁcally, MAML attempts to ﬁnd a policy initialization
+from which only a minimal number of policy gradient steps
+are required to solve new tasks. This is accomplished by per-
+forming gradient descent on the original policy parameters
+with respect to the post policy update rewards. In Section
+4.1 of Finn et al. ( 13), learning the MAML loss via gradient
+descent is proposed. Their loss has a more restricted for-
+mulation than EPG and relies on loss differentiability with
+respect to the objective function.
+In a work concurrent with ours, Yu et al. ( 62) extended the
+model from ( 13) to incorporate a more elaborate learned
+loss function. The proposed loss involves temporal convolu-
+tions over trajectories of experience, similar to the method
+proposed in this paper. However, unlike our work, ( 62)
+primarily considers the problem of behavioral cloning. Typ-
+ically, this means their method will require demonstrations,
+in contrast to our method which does not. Further, their
+outer objective does not require sequential reasoning and
+must be differentiable and their inner loop is a single SGD
+step. We have no such restrictions. Our outer objective is
+long horizon and non-differentiable and consequently our
+inner loop can run over tens of thousands of timesteps.
+Another recent metalearning algorithm is RL2(10) (and
+related methods such as ( 59) and ( 25)). RL2is essentially
+a recurrent policy learning over a task distribution. The
+policy receives ﬂags from the environment marking the end
+of episodes. Using these ﬂags and simultaneously ingesting
+data for several different tasks, it learns how to compute
+gradient updates through its internal logic. RL2is limited
+by its decision to couple the policy and learning algorithm
+(using recurrency for both), whereas we decouple these com-
+ponents. Due to RL2’s policy-gradient-based optimization
+procedure, we see that it does not directly optimize ﬁnal
+policy performance nor exhibit exploration. Hence, exten-
+sions have been proposed such as E-RL2(53) in which the
+rewards of episodes sampled early in the learning process
+are deliberately set to zero to drive exploratory behavior.
+Further research on meta reinforcement learning comprises
+2A demonstration can be viewed at http://blog.openai.
+com/evolved-policy-gradients/ .a vast selection. The literature’s vastness is further compli-
+cated by the fact that the research appears under many dif-
+ferent headings. Speciﬁcally, there exist relevant literature
+on: life-long learning, learning to learn, continual learning,
+and multi-task learning. For example, ( 41;40) consider
+self-modifying learning machines (genetic programs). If we
+consider a genetic program that itself modiﬁes the learned
+genetic program, we can subsequently derive a meta-GP ap-
+proach (See ( 53), for further discussion on how this method
+relates to the more recent metalearning literature discussed
+above). The method described above is sufﬁciently general
+that it encompass most modern metalearning approaches.
+For a further review of other metalearning approaches, see
+the review articles ( 48;57;58) and citation graph they gen-
+erate.
+There are several other avenues of related work that tackle
+slightly different problems. For instance, several methods
+attempt to learn a reward function to drive learning. See
+(7) (which suggests learning from human feedback) and
+the ﬁeld of Inverse Reinforcement Learning ( 28) (which
+recovers the reward from demonstrations). Both of these
+ﬁelds relate to our ideas on loss function learning. Similarly,
+(29;30) apply population-based evolutionary algorithms to
+reward function learning in gridworld environments. This al-
+gorithm is encompassed by the algorithms we present in this
+paper. However, it is typically much easier since learning
+just the reward function is in many cases a trivial task (e.g.,
+in learning to walk, mapping the observation of distance to
+a reward function). See also ( 49;50) and ( 1) for additional
+evolutionary perspectives on reward learning. Other reward
+learning methods include the work of Guo et al. ( 14), which
+focuses on learning reward bonuses, and the work of Sorg et
+al. (51), which focuses on learning reward functions through
+gradient descent. These bonuses are typically designed to
+augment but not replace the learned reward and have not
+been shown to easily generalize across broad task distri-
+butions. Reward bonuses are closely linked to the idea of
+curiosity, in which an agent attempts to learn an internal
+reward signal to drive future exploration. Schmidhuber ( 39)
+was perhaps the ﬁrst to examine the problem of intrinsic mo-
+tivation in a metalearning context. The proposed algorithms
+make use of dynamic programming to explicitly partition
+experience into checkpoints. Further, there is usually little
+focus on metalearning the curiosity signal across several
+different tasks. Finally, the work of ( 17;61;2;22;24) stud-
+ies metalearning over the optimization process in which
+metalearner makes explicit updates to a parametrized model
+in supervised settings.
+Also worth mentioning is that approaches such as UVFA
+(38) and HER ( 3), which learn a universal goal-directed
+value function, somewhat resemble EPG in the sense that
+their critic could be interpreted as a sort of loss function that
+is learned according to a speciﬁc set of rules. Furthermore,
+in DDPG ( 23), the critic can be interpreted in a similarEvolved Policy Gradients
+way since it also makes use of back-propagation through a
+learned function into a policy network.
+6. Discussion
+In this paper, we introduced a new metalearning approach
+capable of learning a differentiable loss function over thou-
+sands of sequential environmental actions. Crucially, this
+learned loss is both adaptive (allowing for quicker learning
+of new tasks) and instructive (sometimes eliminating the
+need for environmental rewards at test time), while exhibit-
+ing stronger generalization properties than contemporary
+metalearning methods.
+In certain cases, the adaptability of our learned loss is ap-
+preciated. For example, consider the DirectionalHopper
+experiments from Section 4. Here, the rewards at test time
+are impossible to infer from observations of the environment
+alone. Therefore, they cannot be completely internalized.
+However, when we do get to observe a reward signal on
+these environments, then EPG does improve learning speed.
+Meanwhile, in most other cases, our loss’ instructive nature –
+which allows it to operate at test time without environmental
+rewards – is interesting and desirable. This instructive na-
+ture can be understood as the loss function’s internalization
+of the reward structures it has previously encountered under
+the training task distribution. We see this internalization
+as a step toward learning intrinsic motivation. A good in-
+trinsically motivated agent would successfully infer useful
+actions in new situations by using heuristics it developed
+over its entire lifetime. This ability is likely required to
+achieve truly intelligent agents (39).
+Furthermore, through decoupling of the policy and learning
+algorithm, EPG shows rudimentary generalization proper-
+ties that go beyond current metalearning methods such as
+RL2. Improving the generalization ability of EPG, as well
+other other metalearning algorithms, will be an important
+component of future work. Right now, we can train an
+EPG loss to be effective for one small family of tasks at a
+time, e.g., getting an ant to walk left and right. However,
+the EPG loss for this family of tasks is unlikely to be at
+all effective on a wildly different kind of task, like playing
+Space Invaders. In contrast, standard RL losses do have this
+level of generality – the same loss function can be used to
+learn a huge variety of skills. EPG gains on performance
+by losing on generality. There may be a long road ahead
+toward metalearning methods that both outperform standard
+RL methods and have the same level of generality.
+Improving computational efﬁciency is another important
+direction for future work. EPG demands sequential learning.
+That is to say, one must ﬁrst perform outer loop update i
+before learning about update i+ 1. This can bottleneckthe metalearning cycle and create large computational de-
+mands. Indeed, the number of sequential steps for each
+inner-loop worker in our algorithm is E×U, using nota-
+tion from Algorithm 1. In practice, this value may be very
+high, for example, each inner-loop worker takes approxi-
+mately 196 million steps to evolve the loss function used
+in the RandomReacher experiments (Figure 7). Finding
+ways to parallelize parts of this process, or increase sample
+efﬁciency, could greatly improve the practical applicability
+of our algorithm. Improvements in computational efﬁciency
+would also allow the investigation of more challenging tasks.
+Nevertheless, we feel the success on the environments we
+tested is non-trivial and provides a proof of concept of our
+method’s power.
+Acknowledgments
+We thank Igor Mordatch, Ilya Sutskever, John Schulman,
+and Karthik Narasimhan for helpful comments and conver-
+sations. We thank Maruan Al-Shedivat for assisting with
+the random MuJoCo environments.
+References
+[1]David Ackley and Michael Littman. Interactions be-
+tween learning and evolution. Artiﬁcial life II , 10:487–
+509, 1991.
+[2]Marcin Andrychowicz, Misha Denil, Sergio Gomez,
+Matthew W Hoffman, David Pfau, Tom Schaul,
+and Nando de Freitas. Learning to learn by gra-
+dient descent by gradient descent. arXiv preprint
+arXiv:1606.04474 , 2016.
+[3]Marcin Andrychowicz, Filip Wolski, Alex Ray, Jonas
+Schneider, Rachel Fong, Peter Welinder, Bob Mc-
+Grew, Josh Tobin, OpenAI Pieter Abbeel, and Wo-
+jciech Zaremba. Hindsight experience replay. In
+Advances in Neural Information Processing Systems ,
+pages 5048–5058, 2017.
+[4]Leemon C Baird III. Advantage updating. Technical
+report, WRIGHT LAB WRIGHT-PATTERSON AFB
+OH, 1993.
+[5]Greg Brockman, Vicki Cheung, Ludwig Pettersson,
+Jonas Schneider, John Schulman, Jie Tang, and Wo-
+jciech Zaremba. OpenAI Gym. arXiv preprint
+arXiv:1606.01540 , 2016.
+[6]Richard Y Chen, John Schulman, Pieter Abbeel, and
+Szymon Sidor. UCB exploration via Q-ensembles.
+arXiv preprint arXiv:1706.01502 , 2017.
+[7]Paul F Christiano, Jan Leike, Tom Brown, Miljan Mar-
+tic, Shane Legg, and Dario Amodei. Deep reinforce-
+ment learning from human preferences. In Advances inEvolved Policy Gradients
+Neural Information Processing Systems , pages 4302–
+4310, 2017.
+[8]Richard Dearden, Nir Friedman, and David Andre.
+Model based bayesian exploration. In Proceedings
+of the Fifteenth conference on Uncertainty in artiﬁ-
+cial intelligence , pages 150–159. Morgan Kaufmann
+Publishers Inc., 1999.
+[9]Yan Duan, Xi Chen, Rein Houthooft, John Schulman,
+and Pieter Abbeel. Benchmarking deep reinforce-
+ment learning for continuous control. In International
+Conference on Machine Learning , pages 1329–1338,
+2016.
+[10] Yan Duan, John Schulman, Xi Chen, Peter L Bartlett,
+Ilya Sutskever, and Pieter Abbeel. RL2: Fast reinforce-
+ment learning via slow reinforcement learning. arXiv
+preprint arXiv:1611.02779 , 2016.
+[11] Chelsea Finn, Pieter Abbeel, and Sergey Levine.
+Model-agnostic meta-learning for fast adaptation of
+deep networks. arXiv preprint arXiv:1703.03400 ,
+2017.
+[12] Chelsea Finn and Sergey Levine. Meta-learning and
+universality: Deep representations and gradient de-
+scent can approximate any learning algorithm. arXiv
+preprint arXiv:1710.11622 , 2017.
+[13] Chelsea Finn, Tianhe Yu, Tianhao Zhang, Pieter
+Abbeel, and Sergey Levine. One-shot visual im-
+itation learning via meta-learning. arXiv preprint
+arXiv:1709.04905 , 2017.
+[14] Xiaoxiao Guo, Satinder Singh, Richard Lewis, and
+Honglak Lee. Deep learning for reward design to
+improve monte carlo tree search in atari games. arXiv
+preprint arXiv:1604.07095 , 2016.
+[15] Tuomas Haarnoja, Haoran Tang, Pieter Abbeel,
+and Sergey Levine. Reinforcement learning
+with deep energy-based policies. arXiv preprint
+arXiv:1702.08165 , 2017.
+[16] Nikolaus Hansen and Andreas Ostermeier. Completely
+derandomized self-adaptation in evolution strategies.
+Evolutionary computation , 9(2):159–195, 2001.
+[17] Sepp Hochreiter, A Steven Younger, and Peter R Con-
+well. Learning to learn using gradient descent. In In-
+ternational Conference on Artiﬁcial Neural Networks ,
+pages 87–94. Springer, 2001.
+[18] Diederik P Kingma and Jimmy Ba. Adam: A
+method for stochastic optimization. arXiv preprint
+arXiv:1412.6980 , 2014.[19] J Zico Kolter and Andrew Y Ng. Near-bayesian explo-
+ration in polynomial time. In Proceedings of the 26th
+Annual International Conference on Machine Learn-
+ing, pages 513–520. ACM, 2009.
+[20] Vijay R Konda and John N Tsitsiklis. Actor-critic algo-
+rithms. In Advances in Neural Information Processing
+Systems , pages 1008–1014, 2000.
+[21] Brenden M Lake, Tomer D Ullman, Joshua B Tenen-
+baum, and Samuel J Gershman. Building machines
+that learn and think like people. Behavioral and Brain
+Sciences , 40, 2017.
+[22] Ke Li and Jitendra Malik. Learning to optimize. arXiv
+preprint arXiv:1606.01885 , 2016.
+[23] Timothy P Lillicrap, Jonathan J Hunt, Alexander
+Pritzel, Nicolas Heess, Tom Erez, Yuval Tassa, David
+Silver, and Daan Wierstra. Continuous control
+with deep reinforcement learning. arXiv preprint
+arXiv:1509.02971 , 2015.
+[24] Luke Metz, Niru Maheswaranathan, Brian Cheung,
+and Jascha Sohl-Dickstein. Learning unsupervised
+learning rules. arXiv preprint arXiv:1804.00222 ,
+2018.
+[25] Nikhil Mishra, Mostafa Rohaninejad, Xi Chen, and
+Pieter Abbeel. Meta-learning with temporal convolu-
+tions. arXiv preprint arXiv:1707.03141 , 2017.
+[26] Oﬁr Nachum, Mohammad Norouzi, Kelvin Xu, and
+Dale Schuurmans. Bridging the gap between value and
+policy based reinforcement learning. In Advances in
+Neural Information Processing Systems , pages 2772–
+2782, 2017.
+[27] Yurii Nesterov and Vladimir Spokoiny. Random
+gradient-free minimization of convex functions. Foun-
+dations of Computational Mathematics , 17(2):527–
+566, 2017.
+[28] Andrew Y Ng and Stuart Russell. Algorithms for
+inverse reinforcement learning. In in Proc. 17th Inter-
+national Conf. on Machine Learning . Citeseer, 2000.
+[29] Scott Niekum, Andrew G Barto, and Lee Spector. Ge-
+netic programming for reward function search. IEEE
+Transactions on Autonomous Mental Development ,
+2(2):83–90, 2010.
+[30] Scott Niekum, Lee Spector, and Andrew Barto. Evo-
+lution of reward functions for reinforcement learning.
+InProceedings of the 13th annual conference compan-
+ion on Genetic and evolutionary computation , pages
+177–178. ACM, 2011.Evolved Policy Gradients
+[31] Brendan O’Donoghue, Remi Munos, Koray
+Kavukcuoglu, and V olodymyr Mnih. Pgq: Combining
+policy gradient and q-learning. arXiv preprint
+arXiv:1611.01626 , 2016.
+[32] Georg Ostrovski, Marc G Bellemare, Aaron van den
+Oord, and Rémi Munos. Count-based explo-
+ration with neural density models. arXiv preprint
+arXiv:1703.01310 , 2017.
+[33] Deepak Pathak, Pulkit Agrawal, Alexei A Efros, and
+Trevor Darrell. Curiosity-driven exploration by self-
+supervised prediction. In International Conference on
+Machine Learning (ICML) , volume 2017, 2017.
+[34] Matthias Plappert, Marcin Andrychowicz, Alex Ray,
+Bob McGrew, Bowen Baker, Glenn Powell, Jonas
+Schneider, Josh Tobin, Maciek Chociej, Peter Welin-
+der, et al. Multi-goal reinforcement learning: Chal-
+lenging robotics environments and request for research.
+arXiv preprint arXiv:1802.09464 , 2018.
+[35] I. Rechenberg and M. Eigen. Evolutionsstrategie: Op-
+timierung Technischer Systeme nach Prinzipien der
+Biologischen Evolution . 1973.
+[36] Richard M Ryan and Edward L Deci. Intrinsic and
+extrinsic motivations: Classic deﬁnitions and new
+directions. Contemporary educational psychology ,
+25(1):54–67, 2000.
+[37] Tim Salimans, Jonathan Ho, Xi Chen, and Ilya
+Sutskever. Evolution strategies as a scalable alter-
+native to reinforcement learning. arXiv preprint
+arXiv:1703.03864 , 2017.
+[38] Tom Schaul, Daniel Horgan, Karol Gregor, and David
+Silver. Universal value function approximators. In
+International Conference on Machine Learning , pages
+1312–1320, 2015.
+[39] Juergen Schmidhuber. Exploring the predictable. In
+Advances in evolutionary computing , pages 579–612.
+Springer, 2003.
+[40] Jürgen Schmidhuber. Evolutionary principles in self-
+referential learning, or on learning how to learn: The
+meta-meta-... hook. Diploma thesis, TUM , 1987.
+[41] Jürgen Schmidhuber. Gödel machines: Fully self-
+referential optimal universal self-improvers. In Arti-
+ﬁcial general intelligence , pages 199–226. Springer,
+2007.
+[42] John Schulman, Pieter Abbeel, and Xi Chen. Equiv-
+alence between policy gradients and soft q-learning.
+arXiv preprint arXiv:1704.06440 , 2017.[43] John Schulman, Nicolas Heess, Theophane Weber, and
+Pieter Abbeel. Gradient estimation using stochastic
+computation graphs. In Advances in Neural Informa-
+tion Processing Systems , pages 3528–3536, 2015.
+[44] John Schulman, Sergey Levine, Pieter Abbeel,
+Michael Jordan, and Philipp Moritz. Trust region
+policy optimization. In International Conference on
+Machine Learning , pages 1889–1897, 2015.
+[45] John Schulman, Filip Wolski, Prafulla Dhariwal, Alec
+Radford, and Oleg Klimov. Proximal policy optimiza-
+tion algorithms. arXiv preprint arXiv:1707.06347 ,
+2017.
+[46] Hans-Paul Schwefel. Numerische Optimierung von
+Computer-Modellen mittels der Evolutionsstrategie:
+mit einer vergleichenden Einführung in die Hill-
+Climbing-und Zufallsstrategie . Birkhäuser, 1977.
+[47] Frank Sehnke, Christian Osendorfer, Thomas Rück-
+stieß, Alex Graves, Jan Peters, and Jürgen Schmid-
+huber. Parameter-exploring policy gradients. Neural
+Networks , 23(4):551–559, 2010.
+[48] Daniel L Silver, Qiang Yang, and Lianghao Li. Life-
+long machine learning systems: Beyond learning algo-
+rithms. In AAAI Spring Symposium: Lifelong Machine
+Learning , volume 13, page 05, 2013.
+[49] Satinder Singh, Richard L Lewis, and Andrew G Barto.
+Where do rewards come from.
+[50] Satinder Singh, Richard L Lewis, Andrew G Barto,
+and Jonathan Sorg. Intrinsically motivated reinforce-
+ment learning: An evolutionary perspective. IEEE
+Transactions on Autonomous Mental Development ,
+2(2):70–82, 2010.
+[51] Jonathan Sorg, Richard L Lewis, and Satinder P Singh.
+Reward design via online gradient ascent. In Ad-
+vances in Neural Information Processing Systems ,
+pages 2190–2198, 2010.
+[52] James C Spall. Multivariate stochastic approxima-
+tion using a simultaneous perturbation gradient ap-
+proximation. IEEE transactions on automatic control ,
+37(3):332–341, 1992.
+[53] B. C. Stadie, G. Yang, R. Houthooft, X. Chen, Y . Duan,
+W. Yuhuai, P. Abbeel, and I. Sutskever. Some consid-
+erations on learning to explore via meta-reinforcement
+learning. In International Conference on Learning
+Representations (ICLR), Workshop Track , 2018.
+[54] Richard S Sutton and Andrew G Barto. Reinforce-
+ment learning: An introduction , volume 1. MIT press
+Cambridge, 1998.Evolved Policy Gradients
+[55] Richard S Sutton, David A McAllester, Satinder P
+Singh, and Yishay Mansour. Policy gradient methods
+for reinforcement learning with function approxima-
+tion. In Advances in Neural Information Processing
+Systems , pages 1057–1063, 2000.
+[56] Haoran Tang, Rein Houthooft, Davis Foote, Adam
+Stooke, Xi Chen, Yan Duan, John Schulman, Filip
+De Turck, and Pieter Abbeel. #Exploration: A study of
+count-based exploration for deep reinforcement learn-
+ing. Advances in Neural Information Processing Sys-
+tems (NIPS) , 2017.
+[57] Matthew E Taylor and Peter Stone. Transfer learning
+for reinforcement learning domains: A survey. Journal
+of Machine Learning Research , 10(Jul):1633–1685,
+2009.
+[58] Sebastian Thrun. Is learning the n-th thing any easier
+than learning the ﬁrst? In Advances in Neural Infor-
+mation Processing Systems , pages 640–646, 1996.
+[59] Jane X Wang, Zeb Kurth-Nelson, Dhruva Tirumala,
+Hubert Soyer, Joel Z Leibo, Remi Munos, Charles
+Blundell, Dharshan Kumaran, and Matt Botvinick.
+Learning to reinforcement learn. arXiv preprint
+arXiv:1611.05763 , 2016.
+[60] Ronald J Williams. Simple statistical gradient-
+following algorithms for connectionist reinforcement
+learning. In Reinforcement Learning , pages 5–32.
+Springer, 1992.
+[61] A Steven Younger, Sepp Hochreiter, and Peter R Con-
+well. Meta-learning with backpropagation. In Neu-
+ral Networks, 2001. Proceedings. IJCNN’01. Interna-
+tional Joint Conference on , volume 3. IEEE, 2001.
+[62] Tianhe Yu, Chelsea Finn, Annie Xie, Sudeep
+Dasari, Tianhao Zhang, Pieter Abbeel, and Sergey
+Levine. One-shot imitation from observing humans
+via domain-adaptive meta-learning. arXiv preprint
+arXiv:1802.01557 , 2018.
+A. Environment Description
+We describe the randomized environments used in our ex-
+periments in the following:
+•RandomHopper andRandomWalker : randomized grav-
+ity, friction, body mass, and link thickness at metatrain-
+ing time, using a forward-velocity reward. At test-time,
+the reward is not fed as an input to EPG.
+•RandomReacher : randomized link lengths, using the
+negative distance as a reward at metatraining time. At
+test-time, the reward is not fed as an input to EPG, how-
+ever, the target location is fed as an input observation.•DirectionalHopper andDirectionalHalfCheetah3: ran-
+domized velocity reward function.
+•GoalAnt : ant environment with randomized target lo-
+cation and randomized initial rotation of the ant. The
+velocity to the target is fed in as a reward. The target
+location is not observed.
+•Fetch : randomized target location, the reward function
+is the negative distance to the target. The reward func-
+tion is not an input to the EPG loss function, but the
+target location is.
+B. Additional Experiments
+Learning without environment resets We show that it
+is straightforward to evolve a loss that is able to perform
+well on no-reset learning, such that the agent is never re-
+set to a ﬁxed starting location and conﬁguration after each
+episode. Figure 19 shows the average return w.r.t. the epoch
+on the GoalAnt environment without reset. The ant con-
+tinues learning from the location and conﬁguration after
+each episode ﬁnishes and is reset to the starting point only
+when the target is reached. Qualitative inspection of the
+learned behavior shows that the agent learns how to reach
+the target multiple times during its lifetime. In comparison,
+running PPO in a no-reset environment is highly difﬁcult,
+since the agent’s policy tends to get stuck in a position it
+cannot escape from (leading to an almost ﬂat zero-return
+learning curve). In some way, this demonstrates that EPG’s
+learned loss guides the agent to avoid states from which it
+cannot escape.
+Figure 19: The average return w.r.t. the epoch on the
+GoalAnt environment with no reset.
+Training performance w.r.t. evolution epoch Figure 20
+shows the metatraining-time performance (calculated based
+on the noise-perturbed loss functions) w.r.t. the number
+ES epochs so far, averaged across 256different inner-loop
+workers for various random seeds, on several of our en-
+vironments. This experiment highlights the stability of
+ﬁnding well-performing loss function via evolution. All
+3Environment sourced from http://github.com/
+cbfinn/maml_rl .Evolved Policy Gradients
+(a) RandomHopper
+ (b) DirectionalHopper
+(c) GoalAnt
+ (d) Fetch
+Figure 20: Final returns averaged across 256inner-loop workers w.r.t. the number outer-loop ES epochs so far in EPG
+training (Algorithm 1). We run EPG training on each environment across 5different random seeds and plot the mean and
+standard deviation as a solid line and a shaded area respectively.
+experiments use 256workers over 64noise vectors and 256
+updates every 32steps ( 8196 -step inner loop).
+EPG loss input sensitivity In the reward-free case (e.g.,
+RandomHopper, RandomWalker, RandomReacher, and
+Fetch), the EPG loss function takes four kinds of inputs: ob-
+servations, actions, termination signals, and policy outputs,
+and evaluates entire buffer with Ntransition steps. Which
+types of input and which time points in the buffer matter the
+most? In Figure 21, we plot the sensitivity of the learned
+loss function to each of these kinds of inputs by computing
+||∂Lt=25
+∂xt||2for different kinds of input xtat different time
+pointstin the input buffer. This analysis demonstrates that
+the loss is especially sensitive to experience at the current
+time step where it is being evaluated, but also depends on
+the entire temporal context in the input buffer. This suggests
+that the temporal convolutions are indeed making use of the
+agent’s history (and future experience) to score the behavior.
+Individual test-time training curves Figures 5, 9, and
+10 show the test-time training trajectories of the EPG agent
+on RandomHopper, DirectionalHalfCheetah, and GoalAnt.
+A detailed plot of how individual learners behave in each
+environment is shown in Figure 22. Looking at both the
+return and KL plots for the DirectionalHalfCheetah and
+GoalAnt environments, we see that the agent ramps up its
+velocity, after which it either ﬁnds out it is going in the right
+direction or not. If it is going in the wrong direction initially,
+it provides a counter signal, turns, and then ramps up its
+velocity in the appropriate direction, increasing its return.
+This demonstrates the exploratory behavior that occurs in
+these environments. In the RandomHopper case, only a
+slight period of system identiﬁcation exists, after which the
+Figure 21: Loss input sensitivity: gradient magnitude of
+Lt=25w.r.t. its inputs at different time steps within the input
+buffer. Notice not only the strong dependence on current
+time point (t= 25 ), but also the dependence on the entire
+buffer window.
+velocity of the hopper is quickly ramped up (visible by the
+increasing KL divergences).
+C. Experiment Hyperparameters
+The experiment hyperparameters used in Section 4 are listed
+in Table 1.Evolved Policy Gradients
+Environment workers W noise vectors V update frequency M updates inner loop length
+RandomHopper 256 64 64 128 8196
+RandomWalker 256 64 128 256 32768
+RandomReacher 256 64 128 512 65536
+DirectionalHopper 256 64 64 128 8196
+DirectionalHalfCheetah 256 64 32 256 8196
+GoalAnt 256 64 32 512 16384
+Fetch 256 64 32 256 8192
+Table 1: EPG hyperparameters for different environments
+(a) Different runs of the learning agent in Figure 5 (RandomHopper)
+(b) Different runs of the learning agent in Figure 9 (DirectionalHalfCheetah)
+(c) Different runs of the learning agent in Figure 10 (GoalAnt, but limited to forward/backward goals)
+Figure 22: More test-time training curves in randomized environments. Each column represents a different sampled
+environment. The red curves plots the return w.r.t. the number of sampled trajectories during training, while the blue curves
+represent the KL divergence of the policy updates w.r.t. the number of policy updates. The number shown in each ﬁrst row
+plot represents the ﬁnal return averaged over the ﬁnal 3trajectories. The return curve (red) x-axis represent the number of
+trajectories sampled so far, while the KL-divergence (blue) x-axis represents the number of updates performed so far.

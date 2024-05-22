@@ -1,0 +1,1241 @@
+WORKING PAPER
+GPTs are GPTs: An Early Look at the Labor Market Impact Potential
+of Large Language Models
+Tyna Eloundou1, Sam Manning1,2, Pamela Mishkin∗1, and Daniel Rock3
+1OpenAI
+2OpenResearch
+3University of Pennsylvania
+August 22, 2023
+Abstract
+Weinvestigatethepotentialimplicationsoflargelanguagemodels(LLMs),suchasGenerativePre-
+trainedTransformers(GPTs),ontheU.S.labormarket, focusingontheincreasedcapabilitiesarisingfrom
+LLM-poweredsoftwarecomparedtoLLMsontheirown. Usinganewrubric,weassessoccupationsbased
+ontheiralignmentwithLLMcapabilities,integratingbothhumanexpertiseandGPT-4classifications.
+Ourfindingsrevealthataround80%oftheU.S.workforcecouldhaveatleast10%oftheirworktasks
+affected by the introduction of LLMs, while approximately 19% of workers may see at least 50% of their
+tasksimpacted. WedonotmakepredictionsaboutthedevelopmentoradoptiontimelineofsuchLLMs.
+The projected effects span all wage levels, with higher-income jobs potentially facing greater exposure to
+LLM capabilities and LLM-powered software. Significantly, these impacts are not restricted to industries
+withhigherrecentproductivitygrowth. Ouranalysissuggeststhat,withaccesstoanLLM,about15%
+ofallworkertasksintheUScouldbecompletedsignificantlyfasteratthesamelevelofquality. When
+incorporating software and tooling built on top of LLMs, this share increases to between 47 and 56%
+of all tasks. This finding implies that LLM-powered software will have a substantial effect on scaling
+theeconomicimpactsoftheunderlyingmodels. WeconcludethatLLMssuchasGPTsexhibittraitsof
+general-purposetechnologies,indicatingthattheycouldhaveconsiderableeconomic,social,andpolicy
+implications.
+1 Introduction
+AsshowninFigure1,recentyears,months,andweekshaveseenremarkableprogressinthefieldofgenerative
+AI and large language models (LLMs). While the public often associates LLMs with various iterations of the
+Generative Pre-trained Transformer (GPT), LLMs can be trained using a range of architectures, and are not
+limitedto transformer-based models(Devlin etal., 2019). LLMscan processand producevarious formsof
+sequential data, including assembly language, protein sequences and chess games, extending beyond natural
+language applications alone. In this paper, we use LLMs and GPTs somewhat interchangeably, and specify in
+our rubric that these should be considered similar to the GPT-family of models available via ChatGPT or
+theOpenAI Playground(whichatthe timeoflabeling includedmodelsinthe GPT-3.5familybut notinthe
+GPT-4family). WeexamineLLMswithtext-andcode-generatingabilities,usetheterm"generativeAI"to
+additionallyincludemodalitiessuchasimagesoraudio,anduse"LLM-poweredsoftware"tocovertoolsbuilt
+on top of LLMs or that combine LLMs with other generative AI models.
+∗Corresponding author (pamela@openai.com). Authors contributed equally and are listed alphabetically.arXiv:2303.10130v5  [econ.GN]  21 Aug 2023WORKING PAPER
+Figure 1: Taken directly from GPT-4 Technical Report (OpenAI, 2023b). To get a sense of how quickly
+modelcapabilitiesareprogressing–considerthejumpinexamperformancebetweenGPT-3.5andGPT-4
+(OpenAI, 2023b).
+Our study is motivated less by the progress of these models alone though, and more by the breadth,
+scale,andcapabilitieswe’veseeninthecomplementarytechnologiesdevelopedaroundthem. Theroleof
+complementary technologies remains to be seen, but maximizing the impact of LLMs appears contingent
+on integrating them with larger systems (Bresnahan, 2019; Agrawal et al., 2021). While the focus of our
+discussionisprimarilyonthegenerativecapabilitiesofLLMs,itisimportanttonotethatthesemodelscan
+also be utilized for various tasks beyond text generation. For example, embeddings from LLMs can be used
+for custom search applications, and LLMs can perform tasks such as summarization and classification where
+the context may be largely contained in the prompt.
+To complement predictions of technology’s impacts on work and provide a framework for understanding
+the evolving landscape of language models and their associated technologies, we propose a new rubric
+for assessing LLM capabilities and their potential effects on jobs. This rubric (A.1) measures the overall
+exposureoftaskstoLLMs,followingthespiritofpriorworkonquantifyingexposuretomachinelearning
+(Brynjolfsson et al., 2018; Felten et al., 2018; Webb, 2020). We define exposure as a proxy for potential
+economicimpactwithoutdistinguishingbetweenlabor-augmentingorlabor-displacingeffects. Weemploy
+humanannotatorsandGPT-4itselfasaclassifiertoapplythisrubrictooccupationaldataintheU.S.economy,
+primarily sourced from the O*NET database. 1 2
+Toconstructourprimaryexposuredataset,wecollectedbothhumanannotationsandGPT-4classifications,
+using a prompt tuned for agreement with a sample of labels from the authors. We observe similar agreement
+1ThisisdistinctfromrecentsocialscienceresearchthatmakesuseofLLMstosimulatehumanbehavior(Horton,2023;Sorensen
+et al., 2022)
+2Whileourexposurerubricdoesnotnecessarilytietheconceptoflanguagemodelstoanyparticularmodel,wewerestrongly
+motivated by our observed capabilities of GPT-4 and the suite of capabilities we saw in development with OpenAI’s launch partners
+(OpenAI, 2023b).WORKING PAPER
+levelsinGPT-4responsesandbetweenhumanandmachineevaluations,whenaggregatedtothetasklevel.
+This exposure measure reflects an estimate of the technical capacity to make human labor more efficient;
+however, social, economic, regulatory, and other determinants imply that technical feasibility does not
+guarantee labor productivity or automation outcomes. Our analysis indicates that approximately 19% of jobs
+haveatleast50%oftheirtasksexposedwhenconsideringbothcurrentmodelcapabilitiesandanticipated
+tools built upon them. Human assessments suggest that only 3% of U.S. workers have over half of their tasks
+exposedtoLLMswhenconsideringexistinglanguageandcodecapabilitieswithoutadditionalsoftwareor
+modalities. Accountingforothergenerativemodelsandcomplementarytechnologies,ourhumanestimates
+indicate that up to 49% of workers could have half or more of their tasks exposed to LLMs.
+Our findings consistently show across both human and GPT-4 annotations that most occupations exhibit
+some degree of exposure to LLMs, with varying exposure levels across different types of work. Occupations
+withhigherwagesgenerallypresentwithhigherexposure,aresultcontrarytosimilarevaluationsofoverall
+exposuretomachinelearning(Brynjolfssonetal.,2023). Whenregressingexposuremeasuresonskillsets
+using O*NET’s skill rubric, we discover that roles heavily reliant on science and critical thinking skills show
+anegativecorrelationwithexposure,whileprogrammingandwritingskillsarepositivelyassociatedwith
+LLMexposure. FollowingAutoretal.(2022a),weexaminebarrierstoentryby"JobZones"andfindthat
+occupational exposure to LLMs weakly increases with the difficulty of job preparation. In other words,
+workers facing higher (lower) barriers to entry in their jobs tend to experience more (less) exposure to LLMs.
+Wefurthercompareourmeasurementstopreviouseffortsdocumentingthedistributionofautomation
+exposureinthe economyandfindbroadlyconsistentresults. Mostothertechnology exposuremeasureswe
+examine are statistically significantly correlated with our preferred exposure measure, while measures of
+manualroutinenessandroboticsexposureshownegativecorrelations. Thevarianceexplainedbytheseearlier
+efforts (Acemogluand Autor, 2011a;Frey and Osborne,2017; Brynjolfsson et al.,2018; Felten etal., 2018;
+Webb, 2020; Brynjolfsson et al., 2023), along with wage controls, ranges from 60 to 72%, indicating that 28
+to40%ofthevariationinourAIexposuremeasureremainsunaccountedforbyprevioustechnologyexposure
+measurements.
+Weanalyzeexposurebyindustryanddiscoverthatinformationprocessingindustries(4-digitNAICS)
+exhibit high exposure, while manufacturing, agriculture, and mining demonstrate lower exposure. The
+connectionbetweenproductivitygrowthinthepastdecadeandoverallLLMexposureappearsweak,suggesting
+a potential optimistic case that future productivity gains from LLMs may not exacerbate possible cost disease
+effects (Baumol, 2012; Aghion et al., 2018). 3
+Our analysis indicates that the impacts of LLMs like GPT-4, are likely to be pervasive. While LLMs
+have consistently improved in capabilities over time, their growing economic effect is expected to persist and
+increase even if we halt the development of new capabilities today. We also find that the potential impact of
+LLMs expands significantly when we take into account the development of complementary technologies.
+Collectively, these characteristics imply that Generative Pre-trained Transformers (GPTs) are general-purpose
+technologies (GPTs). 4(Bresnahan and Trajtenberg, 1995; Lipsey et al., 2005).
+(Goldfarb et al., 2023) argue that machine learning as a broad category is likely a general-purpose
+technology. Ourevidencesupportsawiderimpact,asevensubsetsofmachinelearningsoftwaremeetthe
+criteriaforgeneral-purposetechnologystatusindependently. Thispaper’sprimarycontributionsaretoprovide
+asetofmeasurementsofLLMimpactpotentialandtodemonstratetheusecaseofapplyingLLMstodevelop
+suchmeasurementsefficientlyandatscale. Additionally,weshowcasethegeneral-purposepotentialofLLMs.
+If "GPTs are GPTs," the eventual trajectory of LLM development and application may be challenging for
+3Baumol’s cost disease is a theory that explains why the cost of labor-intensive services, such as healthcare and education,
+increases over time. This happens because wages for skilled workers in other industries increase, but there is no corresponding
+increaseinproductivityorefficiencyintheseserviceindustries. Therefore,thecostoflaborintheseindustriesbecomesrelatively
+more expensive compared to other goods and services in the economy.
+4For the remainder of the paper we spell out general-purpose technologies when it is used outside of stating "GPTs are GPTs."WORKING PAPER
+policymakers to predict and regulate. As with other general-purpose technologies, much of these algorithms’
+potential will emerge across a broad range of economically valuable use cases, including the creation of new
+typesofwork(AcemogluandRestrepo,2018;Autoretal.,2022a). Ourresearchservestomeasurewhatis
+technically feasible now, but necessarily will miss the evolving impact potential of the LLMs over time.
+Thepaperisstructuredasfollows: Section2reviewsrelevantpriorwork,Section3discussesmethods
+and data collection, Section 4 presents summary statistics and results, Section 5 relates our measurements to
+earlier efforts, Section 6 discusses the results, and Section 7 offers concluding remarks.
+2 Literature Review
+2.1 The Advancement of Large Language Models
+Inrecentyears,generativeAImodelshavegainedsignificantattentionfromboththeartificialintelligence
+(AI) research community and the general public, due to their ability to tackle a wide array of complex
+language-based tasks. The progress in these models’ abilities has been fueled by multiple factors, including
+increased model parameter count, greater training data volume, and enhanced training configurations (Brown
+et al., 2020; Radford et al., 2019; Hernandez et al., 2021; Kaplan et al., 2020). Broad, state-of-the-art LLMs,
+such as LaMDA (Thoppilan et al., 2022) and GPT-4 (OpenAI, 2023b), excel in diverse applications like
+translation, classification, creative writing, and code generation—capabilities that previously demanded
+specialized, task-specific models developed by expert engineers using domain-specific data.
+Concurrently, researchers have improved the steerability, reliability, and utility of these models using
+methodslikefine-tuningandreinforcementlearningwithhumanfeedback(Ouyangetal.,2022;Baietal.,
+2022). These advancements enhance the models’ ability to discern user intent, rendering them more
+user-friendly and practical. Moreover, recent studies reveal the potential of LLMs to program and control
+otherdigitaltools,suchasAPIs,searchengines,andevenothergenerativeAIsystems(Schicketal.,2023;
+Mialon et al., 2023; Chase, 2022). This enables seamless integration of individual components for better
+utility, performance, and generalization. At their limit, these trends suggest a world where LLMs may be
+capable of executing any task typically performed at a computer.
+GenerativeAImodelshavemostlybeendeployedasmodularspecialists,performingspecifictaskssuchas
+generatingimagesfromcaptionsortranscribingtextfromspeech. However,wearguethatitisessentialtoview
+LLMs as versatile building blocks for creating additional tools. Developing these tools and integrating them
+intosystemswillrequiretimeandpossiblysignificantreconfigurationofexistingprocessesacrossvarious
+industries. Nevertheless, we are already witnessing emerging adoption trends. Despite their limitations,
+LLMs are increasingly being integrated into specialized applications in fields like writing assistance, coding,
+and legal research. These specialized applications then allow businesses and individuals to adopt LLMs into
+their workflows.
+We emphasize the significance of these complementary technologies, partly because out-of-the-box
+general-purposeLLMsmaycontinuetobeunreliableforvarioustasksduetoissuessuchasfactualinaccuracies,
+inherent biases, privacy concerns, and disinformation risks (Abid et al., 2021; Schramowski et al., 2022;
+Goldsteinetal.,2023;OpenAI,2023a). However,specializedworkflows—includingtooling,software,or
+human-in-the-loopsystems—canhelpaddresstheseshortcomingsbyincorporatingdomain-specificexpertise.
+For example, Casetext offers LLM-based legal research tools that provide lawyers with quicker and more
+accurate legal research results, utilizing embeddings and summarization to counter the risk that GPT-4 could
+provideinaccuratedetailsaboutalegalcaseorsetofdocuments. GitHubCopilotisacodingassistantthat
+employsLLMstogeneratecodesnippetsandauto-completecode,whichuserscanthenacceptorrejectbased
+on their expertise. In other words, while it’s true that on its own GPT-4 does not "know what time it is," it’s
+easy enough to give it a watch.WORKING PAPER
+Furthermore,apositivefeedbackloopmayemergeasLLMssurpassaspecificperformancethreshold,
+allowingthemtoassistinbuildingtheverytoolingthatenhancestheirusefulnessandusabilityacrossvarious
+contexts. This could lower the cost and engineering expertise required to create such tools, potentially
+acceleratingLLMadoptionandintegrationevenfurther(Chenetal.,2021;Pengetal.,2023). LLMscanalso
+becomevaluableassetsinmachinelearningmodeldevelopment—servingascodingassistantsforresearchers,
+data labeling services, or synthetic data generators. There is potential for such models to contribute to
+economic decision-making at the task level, for instance, by refining methods for task and sub-task allocation
+between humans and machines (Singla et al., 2015; Shahaf and Horvitz, 2010). As LLMs advance over time
+andbetteralignwithuserpreferences,wecananticipatecontinuousimprovementinperformance. However,it
+is essential to recognize that these trends also bring a variety of serious risks. (Khlaaf et al., 2022; Weidinger
+et al., 2022; Solaiman et al., 2019)
+2.2 The Economic Impacts of Automation Technologies
+A large and growing body of literature addresses the labor market impacts of AI and automation technologies.
+The concept of skill-biased technological change and the task model of automation—often considered
+the standard framework for understanding technology’s influence on labor—originated from research
+demonstrating that technological progress raises the demand for skilled workers over unskilled workers (Katz
+andMurphy,1992). Numerousstudieshavebuiltuponthisconcept,exploringtheeffectsoftechnological
+changeand automationonworkers withina task-based framework(Autoret al.,2003; Acemoglu andAutor,
+2011b;AcemogluandRestrepo,2018). Thisstrandofresearchhasshownthatworkersinvolvedinroutineand
+repetitivetasksareatahigherriskoftechnology-drivendisplacement,aphenomenonknownasroutine-biased
+technologicalchange. Morerecentstudieshavedistinguishedbetweentechnology’stask-displacementand
+task-reinstatementeffects(wherenewtechnologyincreasestheneedforawiderarrayoflabor-intensivetasks)
+(AcemogluandRestrepo,2018,2019). Severalstudieshaveshownthatautomationtechnologieshaveresulted
+in wage inequality in the US, driven by relative wage declines for workers specializing in routine tasks (Autor
+et al., 2006; Van Reenen, 2011; Acemoglu and Restrepo, 2022b).
+Prior research has employed various approaches to estimate the overlap between AI capabilities and
+thetasksandactivitiesworkersundertakeindifferentoccupations. Thesemethodsincludemappingpatent
+descriptions to worker task descriptions (Webb, 2020; Meindl et al., 2021), linking AI capabilities to
+occupational abilities documented in the O*NET database (Felten et al., 2018, 2023), aligning AI task
+benchmark evaluations with worker tasks via cognitive abilities (Tolan et al., 2021), labeling automation
+potentialforasubsetofUSoccupationsandusingmachinelearningclassifierstoestimatethispotentialfor
+all other US occupations (Frey and Osborne, 2017), modeling task-level automation and aggregating the
+resultstooccupation-levelinsights(Arntzetal.,2017),collectingexpertforecasts(Graceetal.,2018),and
+most relevantly to this paper, devising a new rubric to assess worker activities for their suitability for machine
+learning (Brynjolfsson et al., 2018, 2023). Some of these approaches have found exposure to AI technologies
+at the task-level tends to be diversified within occupation. Considering each job as a bundle of tasks, it would
+beraretofindanyoccupationforwhichAItoolscoulddonearlyallofthework. (Autoretal.,2022a)findsas
+well that automation and augmentation exposures tend to be positively correlated. There is also a growing set
+of studies examining specific economic impacts and opportunities for LLMs (Bommasani et al., 2021; Felten
+et al., 2023; Korinek, 2023; Mollick and Mollick, 2022; Noy and Zhang, 2023; Peng et al., 2023). Alongside
+this work, our measurements help characterize the broader potential relevance of language models to the
+labor market.
+General-purpose technologies (e.g. printing, the steam engine) are characterized by widespread prolifera-
+tion, continuous improvement, and the generation of complementary innovations (Bresnahan and Trajtenberg,
+1995; Lipsey et al., 2005). Their far-reaching consequences, which unfold over decades, are difficult to
+anticipate,particularlyinrelationtolabordemand(Bessen,2018;KorinekandStiglitz,2018;Acemogluetal.,WORKING PAPER
+2020; Benzell et al., 2021). The realization of general purpose technologies’ full potential requires extensive
+co-invention(BresnahanandTrajtenberg,1995;Bresnahanetal.,1996,2002;Lipseyetal.,2005;Dixonetal.,
+2021),acostlyandtime-consumingprocessinvolvingthediscoveryofnewbusinessprocedures(David,1990;
+Bresnahan, 1999; Frey, 2019; Brynjolfsson et al., 2021; Feigenbaum and Gross, 2021). Consequently, many
+studiesofmachinelearningtechnologiesfocusonsystems-leveladoption,arguingthatorganizationalsystems
+may require redesign to effectively take advantage of novel machine learning advancements (Bresnahan,
+2019;Agrawaletal.,2021;Goldfarbetal.,2023). Appropriatelydesignedsystemscanyieldconsiderable
+businessvalue andimprovefirmperformance (Rock,2019; Babinaet al.,2021; Zolasetal., 2021),with AI
+tools facilitating the discovery process (Cockburn et al., 2018; Cheng et al., 2022). By employing task-level
+information to assess whether LLMs fulfill the criteria of a general purpose technology, we seek to merge the
+two perspectives for understanding the technology-labor relationship.
+We attempt to build on these diverse literature streams in several ways. Echoing (Felten et al., 2023), we
+focusouranalysisontheimpactofLLMs,ratherthanaddressingmachinelearningorautomationtechnologies
+morebroadly. Additionally,weproposeanovelmethodthatemploysLLMs,specificallyGPT-4,toassesstasks
+for exposure and automation potential, thereby bolstering human scoring efforts. Subsequently, we aggregate
+our findings to occupations and industries, capturing the overall potential exposure in the contemporary U.S.
+labor market.
+3 Methods and Data Collection
+3.1 Data on Activities and Tasks Performed by Occupation in the US
+WeusetheO*NET27.2database(O*NET,2023),whichcontainsinformationon1,016occupations,including
+their respective Detailed Work Activities (DWAs) and tasks. A DWA is a comprehensive action that is part of
+completingtask,suchas"Studyscriptstodetermineprojectrequirements."Atask,ontheotherhand,isan
+occupation-specific unit of work that may be associated with zero, one, or multiple DWAs. We offer a sample
+of tasks and DWAs in Table 1. The two datasets we use consist of:
+•19,265 tasks, consisting of a "task description" and a corresponding occupation, and
+•2,087 DWAs, where most DWAs are connected to one or more tasks, and tasks may be associated with
+one or more DWAs, though some tasks lack any associated DWAs.
+3.2 Data on Wages, Employment, and Demographics
+We obtain employment and wage data from the 2020 and 2021 Occupational Employment series provided by
+the Bureau of Labor Statistics. This dataset encompasses occupational titles, the number of workers in each
+occupation, and occupation-level employment projections for 2031, typical education required for entry in an
+occupation and on-the-job training required to attain competency in an occupation (BLS, 2022). We use the
+BLS-recommendedcrosswalktoO*NET(BLS,2023b)tolinktheO*NETtaskandDWAdatasetandthe
+BLS Labor Force Demographics (BLS, 2023a), which is derived from the Current Population Survey (CPS).
+BothofthesedatasourcesarecollectedbytheU.S.governmentandprimarilycaptureworkerswhoarenot
+self-employed, are documented, and are working in the so-called formal economy.
+3.3 Exposure
+Wepresentourresultsbasedonanexposurerubric,inwhichwedefine exposure asameasureofwhether
+access to an LLM or LLM-powered system would reduce the time required for a human to perform a specificWORKING PAPER
+Task ID Occupation Title DWAs Task Description
+14675 Computer Systems
+Engineers/ArchitectsMonitor computer system performance
+to ensure proper operation.Monitor system operation to detect potential
+problems.
+18310 Acute Care Nurses Operate diagnostic or therapeutic
+medical instruments or equipment.
+Prepare medical supplies or equipment
+for use.Set up, operate, or monitor invasive equipment
+and devices, such as colostomy or tracheotomy
+equipment, mechanical ventilators, catheters,
+gastrointestinal tubes, and central lines.
+4668.0 Gambling Cage
+WorkersExecute sales or other financial
+transactions.Cash checks and process credit card advances
+for patrons.
+15709 Online Merchants Execute sales or other financial
+transactions.Deliver e-mail confirmation of completed
+transactions and shipment.
+6529 Kindergarten
+Teachers, Except
+Special Education– Involve parent volunteers and older students in
+children’s activities to facilitate involvement in
+focused, complex play.
+6568Elementary School
+Teachers, Except
+Special Education– Involve parent volunteers and older students in
+children’s activities to facilitate involvement in
+focused, complex play.
+Table 1: Sample of occupations, tasks, and Detailed Work Activities from the O*NET database. We see
+that aggregating over activities alone is imprecise, as evidenced by the fact that we’d expect Gambling Cage
+Workersto completethe givenDWA inperson, usingsome physicalitywhile we’dexpect OnlineMerchants
+to complete the same activity solely with a computer.
+DWAorcompleteataskbyatleast50percent. ThoughGPT-4hasvisioncapabilitiesOpenAI(2023b)and
+"LLM"isoftenusedtorefertoamuchwiderrangeofmodalities,visionandimagecapabilitieswereonly
+included in our definition of LLM-powered software. We provide a summary of our rubric below, while the
+complete rubric can be found in A.1. When we have labels for DWAs, we first aggregate them to the task
+level before aggregating to the occupation level.
+No exposure (E0) if:
+•using the described LLM results in no or minimal reduction in the time required to
+complete the activity or task while maintaining equivalent qualityaor
+•using the described LLM results in a decrease in the quality of the activity/task output.
+Direct exposure (E1) if:
+•using the described LLM via ChatGPT or the OpenAI playground can decrease the time
+required to complete the DWA or task by at least half (50%).
+LLM+ Exposed (E2) if:
+•accesstothedescribedLLMalonewouldnotreducethetimerequiredtocompletethe
+activity/task by at least half, but
+•additional software could be developed on top of the LLM that could reduce the time it
+takes to complete the specific activity/task with quality by at least half. Among these
+systems, we count access to image generation systems.b
+aEquivalentqualitymeansthatathirdparty,typicallytherecipientoftheoutput,wouldnotnoticeor
+care about LLM assistance.
+bInpractice,ascanbeseeninthefullrubricinAppendixA.1,wecategorizeaccesstoimagecapabilities
+separately (E3) to facilitate annotation, though we combine E2 and E3 for all analyses.Summary of exposure rubric
+We setthe exposure thresholdat a potential 50% reductionin time required tocomplete a specific DWAWORKING PAPER
+or task while maintaining consistent quality. We anticipate that adoption will be highest and most immediate
+for applications that realize a considerable increase in productivity. Although this threshold is somewhat
+arbitrary,itwasselectedforeaseofinterpretationbyannotators. Moreover,regardlessofthechosenthreshold,
+weguessed thatthereal-worldreductionin tasktimewouldlikely beslightlyorsignificantly lowerthanour
+estimates, leading us to opt for a relatively high threshold. In our own validation labeling, we found that this
+corresponded closely to whether an LLM or LLM-powered software could perform the core part of a task or
+nearly the entire task.
+Comparison 𝛾Weighting Agreement Pearson’s
+GPT-4, Rubric 1; Human 𝛼E1 80.8% 0.223
+𝛽E1 + .5*E2 65.6% 0.591
+𝜁E1 + E2 82.1% 0.654
+GPT-4, Rubric 2; Human 𝛼E1 81.8% 0.221
+𝛽E1 + .5*E2 65.6% 0.538
+𝜁E1 + E2 79.5% 0.589
+GPT-4, Rubric 1; GPT-4, Rubric 2 𝛼E1 91.1% 0.611
+𝛽E1 + .5*E2 76.0% 0.705
+𝜁E1 + E2 82.4% 0.680
+Table 2: Model and human comparison of agreement and Pearson’s correlation scores. The agreement score
+is determined by looking at how often the two groups agree on the annotation (e.g. E0, E1 or E2). In the
+paper we use GPT-4, Rubric 1. Core tasks are given twice the weight at the occupation-level as supplemental
+tasks. All weights sum to one.
+WethencollectedbothhumanandGPT-4-generatedannotationsusingtheexposurerubric,whichunderlie
+the bulk of the analyses in this paper.
+•Human Ratings: We obtained human annotations by applying the rubric to each O*NET Detailed
+Worker Activity (DWA) and a subset of all O*NET tasks and then aggregated those DWA and task
+scores 5atthetaskandoccupationlevels. Theauthorspersonallylabeledalargesampleoftasksand
+DWAs and enlisted experienced human annotators who have reviewed GPT-3, GPT-3.5 and GPT-4
+outputs as part of OpenAI’s alignment work (Ouyang et al., 2022).
+•GPT-4 Ratings: We administered a similar rubric to an early version of GPT-4 (OpenAI, 2023b) but on
+alltask/occupationpairsratherthanDWAs. Wemadeslightmodificationstotherubric(whichwas
+usedasa"prompt"tothemodelinthiscase)toenhanceagreementwithasetofhumanlabels. Full
+agreement rates are given in Table 2.
+We construct three primary measures for our dependent variable of interest: (i) 𝛼, corresponding to E1 in
+the exposure rubric above, anticipated to represent the lower bound of the proportion of exposed tasks within
+an occupation, (ii) 𝛽, which is the sum of E1 and 0.5*E2, where the 0.5 weight on E2 is intended to account
+forexposurewhendeployingthetechnologyviacomplementarytoolsandapplicationsnecessitatesadditional
+investment, and (iii) 𝜁, the sum of E1 and E2, an upper bound of exposure that provides an assessment of
+maximal exposureto an LLLM andLLM-powered software. We summarize agreementbetween annotation
+groupsandmeasuresinTable2. Fortheremainderoftheanalysis,ifnotspecified,thereadermayassumethat
+5TheauthorsannotatedDWAsthatclearlyrequiredahighdegreeofphysicalityormanualdexterity,andthecontractedannotators
+labeled the remaining activities, along with a subset of tasks including those without associated DWAs and those for which there was
+no clear task-level annotation after aggregating the DWA annotations.WORKING PAPER
+wereferto 𝛽exposure–meaningalltasksdirectlyexposedviatoolslikeChatGPTortheOpenAIPlayground
+are considered twice as exposed as tasks requiring some complementary innovation.
+3.4 Limitations of our methodology
+3.4.1 Subjective human judgments
+A fundamental limitation of our approach lies in the subjectivity of the labeling. In our study, we employ
+annotators who are familiar with LLM capabilities. However, this group is not occupationally diverse,
+potentially leading to biased judgments regarding LLMs’ reliability and effectiveness in performing tasks
+within unfamiliar occupations. We acknowledge that obtaining high-quality labels for each task in an
+occupation requires workers engaged in those occupations or, at a minimum, possessing in-depth knowledge
+of the diverse tasks within those occupations. This represents an important area for future work in validating
+these results.
+3.4.2 Measuring LLMs with GPT-4
+Recent research indicates that GPT-4 serves as an effective discriminator, capable of applying intricate
+taxonomies and responding to changes in wording and emphasis (OpenAI, 2023b). The outcomes of GPT-4
+task classification are sensitive to alterations in the rubric’s wording, the prompt’s order and composition, the
+presence or absence of specific examples in the rubric, the level of detail provided, and the definitions given
+for key terms. Iterating on the prompt, based on observed outcomes in a small validation set, can enhance the
+agreement between model outputs and the rubric’s intent. Consequently, there are slight differences between
+therubricpresentedtohumansandtheoneusedforGPT-4. Thisdecisionwasmadedeliberatelytoguide
+themodeltowardsreasonablelabelswithoutexcessivelyinfluencinghumanannotators. Asaresult,weuse
+multiple annotation sources, but none should be considered the definitive ground truth relative to the others.
+In this analysis, we present results from human annotators as our primary results. Further improvement and
+innovation in crafting effective rubrics for LLM classification remains possible. Still, we observe a high
+degreeofagreementbetweenhumanratingsandGPT-4ratingsattheoccupationlevelconcerningoverall
+exposure to LLM systems (see Table 2, Figure 2).
+3.4.3 Additional Weaknesses
+•Validity of task-based framework. It is unclear to what extent occupations can be entirely broken
+downintotasks,andwhetherthisapproachsystematicallyomitscertaincategoriesofskillsortasks
+thataretacitlyrequiredforcompetentperformanceofajob. Additionally,taskscanbecomposedof
+sub-tasks, some of which are more automatable than others. Some tasks may function as pre-cursor to
+othertasks,suchthatthecompletionofdownstreamtasksisdependentonprecursortasks. Ifindeed,
+thetask-basedbreakdownisnotavalidrepresentationofhowmostworkinanoccupationisperformed,
+our exposure analysis would largely be invalidated.
+•Lackofexpertiseandtaskinterpretation. Humanannotatorsweremostlyunawareofthespecific
+occupationsmappedtoeachDWAduringthelabelingprocess. Thisledtounclearlogicforaggregating
+tasksandoccupations,aswellassomeevidentdiscrepanciesinlabels,demonstratedinTable1. We
+experimented with various aggregation methods and discovered that even with a maximum-matching
+approach (taking the matching human<>model label if one existed), the agreement remained relatively
+consistent. Ultimately, we collected additional labels for task/occupation pairs where there was
+significant disagreement.WORKING PAPER
+Figure 2: Human raters (x-axis) and GPT-4 ratings (y-axis) show a high degree of agreement about LLM
+exposurebyoccupation. Wecomputeoccupation-levelexposureinthesefiguresbyaveragingthetask-level
+exposuresunder the 𝛽method. O*NET designatessome tasksas "core"and others"supplemental". Core
+tasks are given twice the weight of supplemental tasks, and all weights sum to one. Near the highest levels of
+exposurefollowingthe 𝛽methodofaggregatingexposurescorestooccupations,GPT-4ratingstendtobe
+lowerthanHumanratings. Wepresenttherawscatterplotandthebinscatter. Nearthetopendofexposure
+ratings, humans are on average more likely to rate an occupation as exposed.
+•Forward-lookingandsubjecttochange, withsomeearlyevidence. Accuratelypredictingfuture
+LLM applications remains a significant challenge, even for experts (OpenAI, 2023b). The discovery of
+newemergentcapabilities,changesinhumanperceptionbiases,andshiftsintechnologicaldevelopment
+can all affect the accuracy and reliability of predictions regarding the potential impact of LLMs
+on worker tasks and the development of LLM-powered software. Our projections are inherently
+forward-looking and based on current trends, evidence, and perceptions of technological possibilities.
+As a result, they may change as new advancements arise in the field. For example, some tasks that
+seem unlikely for LLMs or LLM-powered software to impact today might change with the introduction
+of new model capabilities. Conversely, tasks that appear exposed might face unforeseen challenges
+limiting language model applications.
+•Sources of disagreement. While we did not rigorously examine sources of disagreement, we found a
+few places where humans and the model tended to get "stuck" in their assessments:
+–Tasks or activities where while an LLM could theoretically help or accomplish the task, adopting
+ittodosowouldrequiremultiplepeopletochangetheirhabitsorexpectations(e.g. meetings,
+negotiations),
+–Tasks or activities where there is currently some regulation or norm that requires or suggests
+human oversight, judgment or empathy (e.g. making decisions, counseling), and
+–Tasks or activities where there already exists a technology that can reasonably automate the task
+(e.g. making reservations).
+4 Results
+General-purpose technologies are relatively rare and characterized by their pervasiveness, improvement over
+time, and the development of significant co-invention and spillovers (Lipsey et al., 2005). Our assessment ofWORKING PAPER
+LLMs’potential impactonthelabormarket islimitedsinceitdoesnot considertotalfactorproductivity or
+capital input potential. In addition to their influence on labor, LLMs may also influence these dimensions.
+Atthisstage,somegeneral-purposetechnologycriteriaareeasiertoevaluatethanothers. Ourprimary
+focus at this early stage is to test the hypothesis that LLMs have a pervasive influence on the economy,
+similartotheapproachtakenby(Goldfarbetal.,2023),whoanalyzedmachinelearningdiffusionthrough
+jobpostingstoassessitsstatusasageneral-purposetechnology. Insteadofusingjobpostingsorstudying
+machinelearningingeneral,weemploythetaskevaluationapproachwithbothhumanandGPT-4annotations.
+This analysis may reveal whether the impacts are limited to a specific set of similar tasks or occupations or if
+they will be more widespread.
+Our findings suggest that, based on their task-level capabilities, LLMs have the potential to significantly
+affectadiverserangeofoccupationswithintheU.S.economy,demonstratingakeyattributeofgeneral-purpose
+technologies. Inthefollowingsections,wediscussresultsacrossvariousrolesandwagestructures. Additional
+results on the relative exposure of industries within the U.S. economy can be found in Appendix C.
+4.1 Summary Statistics
+Summary statistics for these measures can be found in Table 3. Both human and GPT-4 annotations indicate
+that average occupation-level 𝛼values fall between 0.14 and 0.15, suggesting that, on average, approximately
+15%oftaskswithinanoccupationaredirectlyexposedtoLLMs. 6Thisfigureincreasestoover30%for 𝛽
+andsurpasses50%for 𝜁. Coincidentally,humanandGPT-4annotationsalsotagbetween15%and14%of
+total tasks in the dataset as being exposed to LLMs. Based on the 𝛽values, we estimate that 80% of workers
+belong to an occupation with at least 10% of its tasks exposed to LLMs, while 19% of workers are in an
+occupation where over half of its tasks are labeled as exposed.
+WeranonesetofanalysesusingO*NET’s"Importance"scoresbutdidnotfindsignificantchangestoour
+findings. Thoughwedoacknowledgethatnot weightingrelativeimportanceofatask toagivenoccupation
+yields some curious results (e.g. ranking Barbers as having reasonably high exposure).
+Although the potential for tasks to be affected is vast, LLMs and LLM-powered software must be
+incorporated into broader systems to fully realize this potential. As is common with general-purpose
+technologies,co-inventionbarriersmayinitiallyimpedetherapiddiffusionofGPTsintoeconomicapplications.
+Furthermore, predicting the need for human oversight is challenging, especially for tasks where model
+capabilities equal or surpass human levels. While the requirement for human supervision may initially slow
+down the speed at which these systems diffuse through the economy, users of LLMs and LLM-powered
+systems are likely to become increasingly acquainted with the technology over time, particularly in terms of
+understanding when and how to trust its outputs.
+4.2 Wages and Employment
+In Figure 3, we present exposure intensity across the economy. Each point on the plot displays occupational
+exposure, where the point’s x-axis value represents the share of an occupation’s tasks that are exposed (at
+each level 𝛼,𝛽, and 𝜁) and the point’s y-axis value represents the share of all US occupations with that share
+of tasks exposed. For example, human annotators determined that 2.3% of occupations are 𝛼50-exposed,
+21.6% are 𝛽50-exposed, and 47.3% are 𝜁50-exposed, where the threshold of 50% comes from the x-axis and
+the percentage of occupations comes from the y axis. At any given point on the x-axis, the vertical distance
+between the 𝛼and the 𝜁represents the exposure potential attributable to tools and applications beyond direct
+exposure to LLMs. All tasks within an occupation in this figure are given equal weight.
+6We computeoccupation-level scoresforTable3assigning doublethe weighttotasks designatedas"core" byO*NET astasks
+designated "supplemental". All tasks weights sum to one within an occupation.WORKING PAPER
+Occupation Level Exposure
+Human GPT-4
+mean std mean std
+𝛼𝛼𝛼0.14 0.14 0.14 0.16
+𝛽𝛽𝛽0.30 0.21 0.34 0.22
+𝜁𝜁𝜁0.46 0.30 0.55 0.34
+Task Level Exposure
+Human GPT-4
+mean std mean std
+𝛼𝛼𝛼0.15 0.36 0.14 0.35
+𝛽𝛽𝛽0.31 0.37 0.35 0.35
+𝜁𝜁𝜁0.47 0.50 0.56 0.50
+Table3: Summarystatisticsofourhumanandmodelexposuredata. Tasksdesignatedascoretasksforan
+occupation are given twice the weight as those indicated to be supplemental in the O*NET task file.
+Figure3: Exposureintensityacrosstheeconomy,displayedintermsofpercentofaffectedoccupations. A
+givendatapointgivesthepercentofoccupationswithexposurebelowthegiventhreshold. Apreviousversion
+ofthispaperhadtwolabelsreversedinthechart,flippinghumanandmodelresponses. Inthisfigure,alltasks
+within an occupation are given equal weight.
+Aggregated at the occupation level, human and GPT-4 annotations exhibit qualitative similarities and
+tendtocorrelate,asdemonstratedinFigure4. Humanannotationsestimatemarginallylowerexposurefor
+high-wageoccupationscomparedtoGPT-4annotations. Whiletherearenumerouslow-wageoccupations
+with high exposure and high-wage occupations with low exposure, the overall trend in the binscatter plot
+reveals that higher wages are associated with increased exposure to LLMs. 7
+The potential exposure to LLMs seems to have little correlation with current employment levels. In
+Figure4,bothhumanandGPT-4ratingsofoverallexposureareaggregatedtotheoccupation-level(y-axis)
+and compared with the log of total employment (x-axis). Neither plot reveals significant differences in LLM
+exposure across varying employment levels.
+7In aggregating tasks to the occupation-level, we assign half the weight to O*NET supplemental tasks as we do for core tasks.WORKING PAPER
+Figure 4: The binscatter plots depict the exposure to language models (LLMs) in various occupations, as
+assessed by both human evaluators and GPT-4. These plots compare the exposure to LLM and partial
+LLM-powered software ( 𝛽) at the occupation level against the log of total employment within an occupation
+and log of the median annual wage for occupations. While some discrepancies exist, both human and GPT-4
+assessmentsindicatethathigherwageoccupationstendtobemoreexposedtoLLMs. Additionally,numerous
+lowerwageoccupationsdemonstratehighexposurebasedonourrubric. Coretasksreceivetwicetheweightof
+supplementaltaskswithinoccupationswhencalculatingaverageexposurescores. Employmentandwagedata
+are sourced from the BLS-OES survey conducted in May 2021. In aggregating tasks to the occupation-level,
+we assign half the weight to O*NET supplemental tasks as we do for core tasks. All weights within an
+occupation sum to one.WORKING PAPER
+4.3 Skill Importance
+In this section, we explore the relationship between the importance of a skill for an occupation (as annotated
+intheO*NETdataset)andourexposuremeasures. First,weusetheBasicSkillsprovidedbyO*NET(skill
+definitions can be found in Appendix B) and normalize the measure of skill importance for each occupation
+to improve the comprehensibility of the results. Next, we conduct a regression analysis on our exposure
+measures ( 𝛼,𝛽,𝜁) to examine the strength of associations between skill importance and exposure.
+Ourfindingsindicatethattheimportanceof scienceandcriticalthinking skillsarestronglynegatively
+associated with exposure, suggesting that occupations requiring these skills are less likely to be impacted
+by current LLMs. Conversely, programming andwritingskills show a strong positive association with
+exposure, implying that occupations involving these skills are more susceptible to being influenced by LLMs
+(see Table 5 for detailed results).
+4.4 Barriers to Entry
+Next, we examinebarriers toentryto betterunderstand ifthereis differentiationinexposure dueto typesof
+jobs. OnesuchproxyisanO*NEToccupation-leveldescriptorcalledthe"JobZone."AJobZonegroups
+occupations that are similar in (a) the level of education needed to get a job in the occupation, (b) the amount
+of related experience required to do the work, and (c) the extent of on-the-job training needed to do the work.
+In the O*NET database, there are 5 Job Zones, with Job Zone 1 requiring the least amount of preparation (3
+months)andJobZone5requiringthemostextensiveamountofpreparation,4ormoreyears. Weobservethat
+medianincomeincreases monotonicallyacrossJobZonesas thelevelofpreparation neededalsoincreases,
+withthemedianworkerinJobZone1earning $30,230andthemedianworkerinJobZone5earning $80,980.
+Allofourmeasures( 𝛼,𝛽,and 𝜁)showanidenticalpattern,thatis,exposureincreasesfromJobZone1to
+JobZone4,andeitherremainssimilarordecreasesatJobZone5. SimilartoFigure3,inFigure5,weplot
+the percentage of workers at every threshold of exposure. We find that, on average, the percentage of workers
+in occupations with greater than 50% 𝛽exposure in Job Zones 1 through 5 have 𝛽at 0.00% (Job Zone 1),
+6.11% (Job Zone 2), 10.57% (Job Zone 3), 34.5% (Job Zone 4), and 26.45% (Job Zone 5), respectively. 8
+4.4.1 Typical Education Needed for Entry
+Since inclusion in a Job Zone accounts for both the education required—which itself is a proxy for skill
+acquisition—and the preparation required, we seek data to disentangle these variables. We use two variables
+fromtheBureauofLaborStatistics’Occupationaldata: "TypicalEducationNeededforEntry"and"On-the-job
+TrainingRequiredtoAttainCompetency"inanoccupation. Byexaminingthesefactors,weaimtouncover
+trends with potential implications for the workforce. There are 3,504,000 workers for whom we lack data on
+education and on-the-job training requirements, and they are therefore excluded from the summary tables.
+OuranalysissuggeststhatindividualsholdingBachelor’s,Master’s,andprofessionaldegreesaremore
+exposedtoLLMsandLLM-poweredsoftwarethanthosewithoutformaleducationalcredentials(seeTable7).
+Interestingly, we also find that individuals with some college education but no degree exhibit a high level of
+exposuretoLLMsandLLM-poweredsoftware. Uponexaminingthetabledisplayingbarrierstoentry,we
+observe that the jobs with the least exposure require the most training, potentially offering a lower payoff (in
+terms of median income) once competency is achieved. Conversely, jobs with no on-the-job training required
+or only internship/residency required appear to yield higher income but are more exposed to LLMs.
+8For this set of results, all tasks have equal weight within an occupation. Results do not change meaningfully with the
+core/supplemental weighting scheme.WORKING PAPER
+Figure5: 𝛽exposureratingsofoccupationsinthefiveJobZones,whicharegroupsofsimilaroccupations
+that are classified according to the level of education, experience, and on-the-job training needed to perform
+them. All tasks are weighted equally.WORKING PAPER
+Group Occupations with highest exposure % Exposure
+Human 𝛼𝛼𝛼 Interpreters and Translators 76.5
+Survey Researchers 75.0
+Poets, Lyricists and Creative Writers 68.8
+Animal Scientists 66.7
+Public Relations Specialists 66.7
+Human 𝛽𝛽𝛽 Survey Researchers 84.4
+Writers and Authors 82.5
+Interpreters and Translators 82.4
+Public Relations Specialists 80.6
+Animal Scientists 77.8
+Human 𝜁𝜁𝜁 Mathematicians 100.0
+Tax Preparers 100.0
+Financial Quantitative Analysts 100.0
+Writers and Authors 100.0
+Web and Digital Interface Designers 100.0
+Humans labeled 15 occupations as "fully exposed."
+Model 𝛼𝛼𝛼 Mathematicians 100.0
+Correspondence Clerks 95.2
+Blockchain Engineers 94.1
+Court Reporters and Simultaneous Captioners 92.9
+Proofreaders and Copy Markers 90.9
+Model 𝛽𝛽𝛽 Mathematicians 100.0
+Blockchain Engineers 97.1
+Court Reporters and Simultaneous Captioners 96.4
+Proofreaders and Copy Markers 95.5
+Correspondence Clerks 95.2
+Model 𝜁𝜁𝜁 Accountants and Auditors 100.0
+News Analysts, Reporters, and Journalists 100.0
+Legal Secretaries and Administrative Assistants 100.0
+Clinical Data Managers 100.0
+Climate Change Policy Analysts 100.0
+The model labeled 86 occupations as "fully exposed."
+Highest variance Search Marketing Strategists 14.5
+Graphic Designers 13.4
+Investment Fund Managers 13.0
+Financial Managers 13.0
+Insurance Appraisers, Auto Damage 12.6
+Table 4: Occupations with the highest exposure according to each measurement. The final row lists the
+occupations with the highest 𝜎2value, indicating that they had the most variability in exposure scores.
+Exposurepercentagesindicatetheshareofanoccupation’staskthatareexposedtoGPTs( 𝛼𝛼𝛼)orGPT-powered
+software( 𝛽𝛽𝛽and𝜁𝜁𝜁),whereexposureisdefinedasdrivingareductionintimeittakestocompletethetaskbyat
+least50%(seeexposurerubricA.1). Assuch,occupationslistedinthistablearethosewhereweestimate
+that GPTs and GPT-powered software are able to save workers a significant amount of time completing a
+largeshareoftheirtasks,butitdoesnotnecessarilysuggestthattheirtaskscanbefullyautomatedbythese
+technologies. All tasks are assigned equal weight within an occupation.WORKING PAPER
+Basic Skill 𝛼𝛼𝛼
+(std err)𝛽𝛽𝛽
+(std err)𝜁𝜁𝜁
+(std err)
+All skill importance scores are normalized to be between 0 and 1.
+Constant 0.082*** -0.112*** 0.300***
+(0.011) (0.011) (0.057)
+Active Listening 0.128** 0.214*** 0.449***
+(0.047) (0.043) (0.027)
+Mathematics -0.127*** 0.161*** 0.787***
+(0.026) (0.021) (0.049)
+Reading Comprehension 0.153*** 0.470*** -0.346***
+(0.041) (0.037) (0.017)
+Science -0.114*** -0.230*** -0.346***
+(0.014) (0.012) (0.017)
+Speaking -0.028 0.133*** 0.294***
+(0.039) (0.033) (0.042)
+Writing 0.368*** 0.467*** 0.566***
+(0.042) (0.037) (0.047)
+Active Learning -0.157*** -0.065** 0.028
+(0.027) (0.024) (0.032)
+Critical Thinking -0.264*** -0.196*** -0.129**
+(0.036) (0.033) (0.042)
+Learning Strategies -0.072* -0.209*** -0.346***
+(0.028) (0.025) (0.034)
+Monitoring -0.067** -0.149*** -0.232***
+(0.023) 0.020) (0.026)
+Programming 0.637*** 0.623*** 0.609***
+(0.030) (0.022) (0.024)
+Table5: Regressionofoccupation-level,human-annotatedexposuretoGPTsonskillimportanceforeach
+skill in the O*NET Basic skills category, plus the programming skill. Descriptions of the skills may be found
+in Appendix B. Task ratings within each occupation for exposure have equal weight.
+Job
+ZonePreparation
+RequiredEducation
+RequiredExample Occupations Median
+IncomeTot Emp
+(000s)H
+𝛼𝛼𝛼M
+𝛼𝛼𝛼H
+𝛽𝛽𝛽M
+𝛽𝛽𝛽H
+𝜁𝜁𝜁M
+𝜁𝜁𝜁
+1 None or little
+(0-3 months)High school
+diploma or GED
+(otional)Food preparation workers,
+dishwashers, floor sanders$30,230 13,100 0.03 0.04 0.06 0.06 0.09 0.08
+2 Some (3-12
+months)High school
+diplomaOrderlies, customer
+service representatives,
+tellers$38,215 73,962 0.07 0.12 0.16 0.20 0.24 0.27
+3 Medium (1-2
+years)Vocational school,
+on-the-job training,
+or associate’s
+degreeElectricians, barbers,
+medical assistants$54,815 37,881 0.11 0.14 0.26 0.32 0.41 0.51
+4 Considerable
+(2-4 years)Bachelor’s degree Database administrators,
+graphic designers, cost
+estimators$77,345 56,833 0.23 0.18 0.47 0.51 0.71 0.85
+5 Extensive (4+
+years)Master’s degree or
+higherPharmacists, lawyers,
+astronomers$81,980 21,221 0.23 0.13 0.43 0.45 0.63 0.76
+Table 6: Mean exposure to GPTs by job zone. For each job zone, we also present the median of median
+annual income for each constituting occupation in USD, andthe total number of workers in all occupations
+for that job zone, in the thousands. Task weights are equal for all tasks.WORKING PAPER
+On The Job Training Required Median Income Tot Emp (000s) H𝛼𝛼𝛼M𝛼𝛼𝛼H𝛽𝛽𝛽M𝛽𝛽𝛽H𝜁𝜁𝜁M𝜁𝜁𝜁
+None $77,440 90,776 0.20 0.16 0.42 0.46 0.63 0.76
+Apprenticeship $55,995 3,066 0.01 0.02 0.04 0.06 0.07 0.10
+Internship/residency $77,110 3,063 0.16 0.06 0.36 0.38 0.55 0.71
+Short-term on-the-job training $33,370 66,234 0.11 0.15 0.21 0.25 0.32 0.34
+Moderate-term on-the-job training $46,880 31,285 0.09 0.12 0.21 0.25 0.32 0.38
+Long-term on-the-job training $48,925 5,070 0.08 0.10 0.18 0.22 0.28 0.33
+Table 7: Mean exposure scores for occupations, grouped by level of on-the-job training required to attain
+competency in the job. Alongside exposure scores, we display the median of median annual income for each
+occupation, as well as the total number of workers in each group, in thousands. Task weights are equal within
+an occupation and sum to one.WORKING PAPER
+5 Validation of Measures
+5.1 Comparison to Earlier Efforts
+This paperaims tobuild ona numberof previous empiricalstudies examiningthe occupationalexposureto
+advances in AI and/or automation. Previous studies have used a variety of methods, including:
+•Using occupational taxonomies like O*NET to characterize which occupations have routine vs.
+non-routine and manual vs. cognitive task content (Autor et al., 2003; Acemoglu and Autor, 2011a).
+•Mapping text descriptions of tasks to descriptions of technological advances in patents. (Kogan et al.,
+2021; Webb, 2020)
+•Linking capabilities of AI systems to occupational abilities and aggregating exposure estimates to the
+occupations where those abilities are required. (Felten et al., 2018, 2023)
+•MappingtheresultsofAItaskbenchmarkevaluations(ImageNet,Robocup,etc.) to59workertasks
+through a set of 14 cognitive abilities drawn from the cognitive science literature. (Tolan et al., 2021)
+•Expert labeling of automation potential for a set of O*NET occupations where experts had high
+confidence, combined with a probabilistic classifier to estimate automation potential for the remainder
+of O*NET occupations. (Frey and Osborne, 2017)
+•Developing a rubric for evaluating the "suitability for machine learning" (SML) of activities that
+workersarecompletingintheeconomy(BrynjolfssonandMitchell,2017;Brynjolfssonetal.,2018,
+2023).
+We provide a set of summary statistics on many of these prior efforts in Table 8.
+Thispaper’smethodologyprimarilybuildsupontheSMLapproachbydevelopingarubrictoevaluatethe
+overlap between LLM capabilities and worker tasks as reported in the O*NET database. Table 9 presents the
+results of OLS regressions of our new LLM exposure measurements on occupation-level exposure measures
+from(Felten etal., 2018)("AI OccupationalExposure Score"in thetable),(Frey andOsborne, 2017)(Frey
+& Osborne Automation), scores from all three technologies in (Webb, 2020), normalized routine manual
+andcognitivescoresfrom(AcemogluandAutor,2011a),and(Brynjolfssonetal.,2018,2023)(SML).We
+alsouseannualizedoccupationalsalariesfromthemostrecentBLSOccupationalEmploymentSurveyasa
+control. Therearefourseparateoutputvariablesrepresentingnewscoresinthispaperthatarepredictedby
+earlier efforts.
+GPT-4 Exposure Rating 1 corresponds to our overall exposure rubric as evaluated by GPT-4, where full
+exposure potential is coded as 1, no exposure potential is coded as 0, and partial exposure (E2 in our labeling
+scheme)iscodedas0.5. GPT-4ExposureRating2isscoredsimilarlyforoverallexposure, butwithaslightly
+differentprompt. Theresultsareverysimilaracrossthetwoprompts. HumanExposureRatingrepresentsthe
+same rubric as in GPT-4 Exposure Rating 1 but is scored by humans, as discussed in an earlier section of the
+paper. These results correspond to the 𝛽set of statistics presented above, with supplemental tasks having half
+the weight of core tasks within an occupation. These weights sum to one (core/supplemental distinctions are
+determined by O*NET).
+Theresultsacrosseachtypeofmeasurementareconsistent. Wefindgenerallypositiveandstatistically
+significant correlations between our LLM exposure measures and previous measurements targeting software
+andAI.Encouragingly,theSMLexposurescoresbyoccupationshowsignificantandpositiveassociations
+with the exposure scores we develop in this paper, demonstrating a level of cohesion between the two studies
+withsimilarapproaches. TheWebbsoftwareandAIpatent-basedmeasures,SML,andnormalized(demeanedWORKING PAPER
+Min 25th Perc. Median 75th Perc Max Mean Std. Dev. Count
+GPT-4 Exposure Rating 1 0.00 0.13 0.34 0.50 1.00 0.33 0.22 750
+GPT-4 Exposure Rating 2 0.00 0.09 0.24 0.40 0.98 0.26 0.20 750
+Human Exposure Rating 0.00 0.09 0.29 0.47 0.84 0.29 0.21 750
+Software (Webb) 1.00 25.00 50.00 75.00 100.00 50.69 30.05 750
+Robot (Webb) 1.00 22.00 52.00 69.00 100.00 48.61 28.61 750
+AI (Webb) 1.00 28.00 55.00 82.00 100.00 54.53 29.65 750
+Suitability for Machine Learning 2.60 2.84 2.95 3.12 3.55 2.99 0.18 750
+Normalized Routine Cognitive -3.05 -0.46 0.10 0.63 3.42 0.07 0.86 750
+Normalized Routine Manual -1.81 -0.81 -0.11 0.73 2.96 0.05 1.01 750
+AI Occupational Exposure Score 1.42 3.09 3.56 4.04 6.54 3.56 0.70 750
+Frey & Osborne Automation 0.00 0.07 0.59 0.88 0.99 0.50 0.38 681
+Log Avg. Salary 10.13 10.67 11.00 11.34 12.65 11.02 0.45 749
+Table8: SummarystatisticsforasuiteofprioreffortstomeasureoccupationalexposuretoAIandautomation.
+We have also included summary statistics for measurements newly presented in this work. We include all
+measuresfrom(Webb,2020), normalized routinecognitiveandmanual scoresfrom(Acemogluand Autor,
+2011a) (means may deviate slightly from 0 due to imperfect matching of occupational groups), Suitability for
+Machine Learning from (Brynjolfsson and Mitchell, 2017; Brynjolfsson et al., 2018, 2023), AI Occupational
+Exposurefrom(Feltenetal.,2018),andAutomationexposurefrom(FreyandOsborne,2017). Weincludeas
+many occupations as we can match, but since O*NET taxonomies have changed as these measures have been
+developed, some of the roles may be missing from the most recent version of O*NET 6-digit occupations.
+and divided by standard deviation) routine cognitive scores all exhibit positive associations with some of our
+measures.
+Software,SML,androutinecognitivescoresallshowpositiveandstatisticallysignificantassociations
+with LLM exposure scores at a 1% level. Coefficients on AI scores from (Webb, 2020) are also positive and
+statisticallysignificantata5%level,butoursecondarypromptonoverallexposuretoLLMsincolumns3
+and 4 does not exhibit a statistically significant relationship. For the most part, the AI Occupational Exposure
+Score is not correlated with our exposure measures. Webb’s Robot exposure scores, routine manual task
+content, and the overall Automation metric from (Frey and Osborne, 2017) are all negatively correlated with
+our primary GPT-4 and human-assessed overall exposure ratings, conditional on the other measurements.
+ThisnegativecorrelationreflectsthelimitedexposureofphysicaltaskstoLLMs. Manualworkisnotexposed
+to LLMs or even LLMs with additional systems integration for the time being.
+Low correlations with (Felten et al., 2018) and (Frey and Osborne, 2017) could potentially be explained
+bydifferencesinapproaches. LinkingAIcapabilitiestoworkerabilitiesorscoringexposuredirectlybasedon
+the occupation’s characteristics, rather than aggregating up to the occupation from DWA or task-level scoring
+(as in the SML paper and our own), offer a slightly different perspective on the content of occupations.
+Inallregressions,the 𝑅2rangesbetween60.7%(column3)and72.8%(column5). Thissuggeststhat
+ourmeasure,whichexplicitlyfocusesonLLMcapabilities,hasbetween28and40%unexplainedvariance
+compared to other measurements. Particularly in the case of AI-related exposure scores, we anticipate that a
+combination of other measurements would have a strong correlation with our scores. However, earlier efforts
+hadlimitedinformationaboutthefutureprogressofLLMsorLLM-poweredsoftware. Weexpectthatour
+understanding of futuremachine learning technologies is similarly imperfectly captured by ourrubric today.WORKING PAPER
+GPT-4 Exposure Rating 1 GPT-4 Exposure Rating 2 Human Exposure Rating
+(1) (2) (3) (4) (5) (6)
+Software (Webb) 0.00113∗∗∗0.00123∗∗∗0.00111∗∗∗0.00119∗∗∗0.00096∗∗∗0.00101∗∗∗
+(0.00031) ( 0.00031) ( 0.00031) ( 0.00031) ( 0.00031) ( 0.00031)
+Robot (Webb) −0.00378∗∗∗−0.00405∗∗∗−0.00377∗∗∗−0.00399∗∗∗−0.00371∗∗∗−0.00383∗∗∗
+(0.00032) ( 0.00031) ( 0.00034) ( 0.00033) ( 0.00029) ( 0.00028)
+AI (Webb) 0.00080∗∗∗0.00090∗∗∗0.00036 0 .00045 0 .00067∗∗0.00071∗∗
+(0.00030) ( 0.00029) ( 0.00030) ( 0.00030) ( 0.00030) ( 0.00030)
+Suitability for Machine Learning 0.29522∗∗∗0.26888∗∗∗0.28468∗∗∗0.26245∗∗∗0.19514∗∗∗0.18373∗∗∗
+(0.04503) ( 0.04418) ( 0.04404) ( 0.04342) ( 0.03990) ( 0.03886)
+Normalized Routine Cognitive 0.06601∗∗∗0.06868∗∗∗0.04743∗∗∗0.05015∗∗∗0.03568∗∗∗0.03659∗∗∗
+(0.00886) ( 0.00894) ( 0.00872) ( 0.00879) ( 0.00671) ( 0.00669)
+Normalized Routine Manual −0.11147∗∗∗−0.11371∗∗∗−0.09390∗∗∗−0.09561∗∗∗−0.11045∗∗∗−0.11152∗∗∗
+(0.00785) ( 0.00789) ( 0.00817) ( 0.00818) ( 0.00741) ( 0.00744)
+AI Occupational Exposure Score 0.00993 0 .02465∗∗−0.01537−0.00265 0 .00630 0 .01252
+(0.01107) ( 0.01059) ( 0.01160) ( 0.01114) ( 0.00918) ( 0.00845)
+Frey & Osborne Automation −0.03024∗−0.03950∗∗−0.00364−0.01217−0.03890∗∗−0.04253∗∗
+(0.01835) ( 0.01841) ( 0.02007) ( 0.01972) ( 0.01883) ( 0.01858)
+Log Avg. Salary 0.05804∗∗∗0.04863∗∗∗0.02531
+(0.01870) ( 0.01860) ( 0.01727)
+Constant −1.12937∗∗∗−0.45743∗∗∗−0.96117∗∗∗−0.39935∗∗∗−0.47078∗−0.17706
+(0.26859) ( 0.15327) ( 0.26365) ( 0.15017) ( 0.24684) ( 0.13256)
+N 680.00000 681 .00000 680 .00000 681 .00000 680 .00000 681 .00000
+𝑅20.68741 0 .68212 0 .60737 0 .60198 0 .71213 0 .71126
+Table9: RegressionofLLM-exposurescoresonpriormeasuresofoccupationalexposuretoAIandautomation.
+We also include annualized wages from the BLS-OES survey in May 2021. Each measure is kept in its
+original scale, with the exception of routine cognitive and routine manual scores from (Acemoglu and Autor,
+2011a). Thosetwoscoresarestandardizedtomeanzeroandvariance1. Generallywefindstrongpositive
+associationswithpreviousefforts,thoughlargeresidualvariancetostillbeexplainedbyournewmeasures.
+Columns 1 and 2 are based on our main 𝛽exposure measure from GPT-4 ratings. Columns 3 and 4 are
+basedonasimilarslightlydifferentexposurerubricalsoratedbyGPT-4forrobustness. Columns5and6
+reflect human ratings on the same rubric as columns 1 and 2. Occupation-level scores are built using the
+core/supplemental task weights, assigning supplemental tasks as having half the weight of core tasks.WORKING PAPER
+6 Discussion
+6.1 GPTs as a General-Purpose Technology
+Earlier in this paper we discuss the possibility that LLMs could be classified as a general-purpose technology.
+ThisclassificationrequiresLLMstomeetthreecorecriteria: improvementovertime,pervasivenessthroughout
+theeconomy,andtheabilitytospawncomplementaryinnovations(Lipseyetal.,2005). EvidencefromtheAI
+andmachinelearningliteraturethoroughlydemonstratesthatLLMsmeetthefirstcriteria–theyareimproving
+incapabilitiesovertimewiththeabilitytocompleteorbehelpfulforanincreasinglycomplexsetoftasksand
+use-cases (see 2.1). This paper presents evidence to support the latter two criteria, finding that LLMs on their
+owncanhavepervasiveimpactsacrosstheeconomy, andthatcomplementaryinnovationsenabledbyLLMs–
+particularly via software and digital tools – can have widespread application to economic activity.
+Figure3offersoneillustrationofthepotentialeconomicimpactofcomplementarysoftwarebuiltontopof
+LLMs. Takingthedifferenceinthey-axis(theshareofalloccupations)between 𝛼and𝜁atagivenpointalong
+thex-axis(theshareoftaskswithinanoccupationthatareexposed)givestheaggregatewithin-occupation
+exposure potential attributable to tools and software over and above direct exposure from LLMs on their
+own. The difference in means across all tasks between 𝛼and𝜁of 0.42 using the GPT-4 annotations and 0.32
+usingthehumanannotations(seeFigure3),suggeststhattheaverageimpactofLLM-poweredsoftwareon
+task-exposuremaybemorethantwiceaslargeasthemeanexposurefromLLMsontheirown(mean 𝜁of0.14
+basedonbothhumanannotationsandGPT-4annotations). Whileourfindingssuggestthatout-of-the-box
+these models are relevant to a meaningful share of workers and tasks, they also suggest that the software
+innovations they spawn could drive a much broader impact.
+One component of the pervasiveness of a technology is its level of adoption by businesses and users.
+This paper does not systematically analyze adoption of these models, however, there is early qualitative
+evidence that adoption and use of LLMs is becoming increasingly widespread. The power of relatively
+simpleUIimprovementsontopofLLMswasevidentintherolloutofChatGPT–whereinversionsofthe
+underlying language model had been previously available via API, but usage skyrocketed after the release of
+theChatGPTinterface. (Chow,2023;OpenAI,2022)Followingthisrelease,anumberofcommercialsurveys
+indicatethatfirmandworkeradoptionofLLMshasincreasedoverthepastseveralmonths. (Constantz,2023;
+ResumeBuilder.com, 2023)
+Widespread adoption of these models requires addressing existing bottlenecks. A key determinant of
+their utility is the level of confidence humans place in them and how humans adapt their habits. For instance,
+in the legal profession, the models’ usefulness depends on whether legal professionals can trust model
+outputswithoutverifyingoriginaldocumentsorconductingindependentresearch. Thecostandflexibility
+ofthetechnology,workerandfirmpreferences,andincentivesalsosignificantlyinfluencetheadoptionof
+tools built on top of LLMs. In this way, adoption may be driven by progress on some of the ethical and
+safety risks associated with LLMs: bias, fabrication of facts, and misalignment, to name a few OpenAI
+(2023a). Moreover, the adoption of LLMs will vary across different economic sectors due to factors such
+as data availability, regulatory environment, and the distribution of power and interests. Consequently, a
+comprehensiveunderstandingoftheadoptionanduseofLLMsbyworkersandfirmsrequiresamorein-depth
+exploration of these intricacies.
+Onepossibilityisthattimesavingsandseamlessapplicationwillholdgreaterimportancethanquality
+improvement for the majority of tasks. Another is that the initial focus will be on augmentation, followed by
+automation (Huang and Rust, 2018). One way this might take shape is through an augmentation phase where
+jobs first become more precarious (e.g., writers becoming freelancers) before transitioning to full automation.WORKING PAPER
+6.2 Implications for US Public Policy
+The introduction of automation technologies, including LLMs, has previously been linked to heightened
+economic disparity and labor disruption, which may give rise to adverse downstream effects (Acemoglu and
+Restrepo, 2022a; Acemoglu, 2002; Moll et al., 2021; Klinova and Korinek, 2021; Weidinger et al., 2021,
+2022). OurresultsexaminingworkerexposureintheUnitedStatesunderscoretheneedforsocietalandpolicy
+preparedness to the potential economic disruption posed by LLMs and the complementary technologies
+that they spawn. While it is outside the scope of this paper to recommend specific policy prescriptions to
+smooth the transition to an economy with increasingly widespread LLM adoption, prior work such as (Autor
+et al., 2022b) has articulated several important directions for US policy related to education, worker training,
+reforms to safety net programs, and more.
+6.3 Limitations and Future Work
+Inadditiontothosediscussedabove,wehighlightsomeparticularlimitationsofthisworkthatwarrantfurther
+investigation. Primarily, ourfocus onthe UnitedStatesrestricts thegeneralizability ofour findingsto other
+nations where the adoption and impact of generative models may differ due to factors such as industrial
+organization, technological infrastructure, regulatory frameworks, linguistic diversity, and cultural contexts.
+We hope to address this limitation by extending the study’s scope and by sharing our methods so other
+researchers can build on them.
+Subsequentresearcheffortsshouldconsidertwoadditionalstudies: oneexploringLLMadoptionpatterns
+across various sectors and occupations, and another scrutinizing the actual capabilities and limitations of
+state-of-the-art models in relation to worker activities beyond the scope of our exposure scores. For example,
+despite recent advances in multimodal capabilities with GPT-4, we did not consider vision capabilities in
+the𝛼ratingsondirectLLMs-exposure(OpenAI,2023b). Futureworkshouldconsidertheimpactofsuch
+capabilityadvancesas theyunfold. Furthermore, weacknowledge thattheremaybediscrepanciesbetween
+theoretical and practical performance, particularly in complex, open-ended, and domain-specific tasks.
+7 Conclusion
+In conclusion, this study offers an examination of the potential impact of LLMs on various occupations and
+industries within the U.S. economy. By applying a new rubric for understanding LLM capabilities and their
+potential effects on jobs, we have observed that most occupations exhibit some degree of exposure to LLMs,
+withhigher-wageoccupationsgenerallypresentingmoretaskswithhighexposure. Ouranalysisindicatesthat
+approximately 19% of jobs have at least 50% of their tasks exposed to LLMs when considering both current
+model capabilities and anticipated LLM-powered software.
+Our research aims to highlight the general-purpose potential of LLMs and their possible implications for
+USworkers. Previousliterature demonstratestheimpressiveimprovements ofLLMsto date(see2.1). Our
+findingsconfirmthehypothesisthatthesetechnologiescanhavepervasiveimpactsacrossawideswathof
+occupations in the US, and that additional advancements supported by LLMs, mainly through software and
+digital tools, can have significant effects on a range of economic activities. However, while the technical
+capacityforLLMstomakehumanlabormoreefficientappearsevident,itisimportanttorecognizethatsocial,
+economic, regulatory, andotherfactorswillinfluenceactuallaborproductivityoutcomes. Ascapabilities
+continue to evolve, the impact of LLMs on the economy will likely persist and increase, posing challenges for
+policymakers in predicting and regulating their trajectory.
+Further research is necessary to explore the broader implications of LLM advancements, including
+theirpotentialtoaugmentordisplacehumanlabor,theirimpactonjobquality,impactsoninequality,skill
+development, and numerous other outcomes. By seeking to understand the capabilities and potential effectsWORKING PAPER
+of LLMs on the workforce, policymakers and stakeholders can make more informed decisions to navigate the
+complex landscape of AI and its role in shaping the future of work.
+7.1 LLM Conclusion (GPT-4’s Version)
+GenerativePre-trainedTransformers(GPTs)generateprofoundtransformations,garneringpotentialtechnolog-
+ical growth, permeating tasks, greatly impacting professions. This study probes GPTs’ potential trajectories,
+presenting a groundbreaking rubric to gauge tasks’ GPT exposure, particularly in the U.S. labor market.
+7.2 LLM Conclusion (Author-Augmented Version)
+Generative Pre-trained Transformers (GPTs) generate profound transformations, garnering potential techno-
+logical growth, permeating tasks, gutting professional management. Gauging possible trajectories? Generate
+pioneering taxonomies, gather policymakers together, generalize past today.
+Acknowledgments
+Thank you tothe group of annotatorswho helped us annotate taskexposure, including Muhammad Ahmed
+Saeed,BonganeZitha,MerveÖzenŞenen,J.J.,andPeterHoeschele. WealsothankLaurynFuld,AshleyGlat,
+Michael Lampe, and Julia Susser for excellent research assistance. We thank Miles Brundage for significant
+feedback on this paper.
+We thank Todor Markov and Vik Goel for setting up the infrastructure we use to run our rubrics with
+GPT-4. WethankLamaAhmad,DonaldBakong,SethBenzell,ErikBrynjolfsson,ParfaitEloundou-Enyegue,
+Carl Frey, Sarah Giroux, Gillian Hadfield, Johannes Heidecke, Alan Hickey, Eric Horvitz, Shengli Hu,
+Ashyana Kachra, Christina Kim, Katya Klinova, Daniel Kokotajlo, Gretchen Krueger, Michael Lampe, Aalok
+Mehta, Larissa Schiavo, DanielSelsam, Sarah Shoker, Prasanna Tambe, and JeffWu for feedbackand editsat
+various stages of the project.
+LLM assistance statement
+GPT-4 and ChatGPT were used for writing, coding, and formatting assistance in this project.
+A Rubric
+A.1 Exposure
+# E Exposure Taxonomy
+Consider themost powerful OpenAIlarge languagemodel (LLM) Thismodel can completemany tasks
+that can be formulated as having text input and text output where the context for the input can be captured in
+2000 words. The model also cannot draw up-to-date facts (those from <1 year ago) unless they are captured
+in the input.
+Assume you are a worker with an average level of expertise in your role trying to complete the given task.
+YouhaveaccesstotheLLMaswellasanyotherexistingsoftwareorcomputerhardwaretoolsmentioned
+inthetask. Youalsohaveaccesstoanycommonlyavailabletechnicaltoolsaccessibleviaalaptop(e.g. a
+microphone, speakers, etc.). You do not have access to any other physical tools or materials.
+Please label the given task according to the taxonomy below.
+## E0 – No exposureWORKING PAPER
+Label tasks E0 if direct access to the LLM through an interface like ChatGPT or the OpenAI playground
+cannot reduce the time it takes to complete this task with equivalent quality by half or more.
+If a task requires a high degree of human interaction (for example, in person demonstrations) then it
+should be classified as E0.
+## E1 – Direct exposure
+Label tasks E1 if direct access to the LLM through an interface like ChatGPT or the OpenAI playground
+alone can reduce the time it takes to complete the task with equivalent quality by at least half. This includes
+tasksthatcanbereducedto: -Writingandtransformingtextandcodeaccordingtocomplexinstructions,-
+Providing edits to existing text or code following specifications, - Writing code that can help perform a task
+thatusedtobedonebyhand,-Translatingtextbetweenlanguages,-Summarizingmedium-lengthdocuments,
+-Providingfeedbackondocuments,-Answeringquestionsaboutadocument,or-Generatingquestionsa
+user might want to ask about a document.
+## E2 – Exposure by LLM-powered applications
+Labeltasks E2ifhaving accesstotheLLM alonemay notreducethetime ittakes tocompletethetask by
+at least half, but it is easy to imagine additional software that could be developed on top of the LLM that
+would reduce the time it takes to complete the task by half. This software may include capabilities such
+as: - Summarizing documents longer than 2000 words and answering questions about those documents -
+Retrieving up-to-date facts from the Internet and using those facts in combination with the LLM capabilities -
+Searching over an organization’s existing knowledge, data, or documents and retreiving information
+ExamplesofsoftwarebuiltontopoftheLLMthatmayhelpcompleteworkeractivitiesinclude: -Software
+built for a home goods company that quickly processes and summarizes their up-to-date internal data in
+customizedwaystoinformproductormarketingdecisions-Softwarethatisabletosuggestliveresponsesfor
+customer service agents speaking to customers in their company’s customer service interface - Software built
+for legal purposes that can quickly aggregate and summarize all previous cases in a particular legal area and
+write legal research memos tailored to the law firm’s needs - Software specifically designed for teachers that
+allows them to input a grading rubric and upload the text files of all student essays and have the software
+outputalettergradeforeachessay-Softwarethatretrievesup-to-datefactsfromtheinternetandusesthe
+capabilities of the LLM to output news summaries in different languages
+## E3 – Exposure given image capabilities
+Suppose you had access to both the LLM and a system that could view, caption, and create images. This
+systemcannottakevideomediaasinputs. Thissystemcannotaccuratelyretrieveverydetailedinformation
+from image inputs, such as measurements of dimensions within an image. Label tasks as E3 if there is
+a significant reduction in the time it takes to complete the task given access to a LLM and these image
+capabilities: - Reading text from PDFs, - Scanning images, or - Creating or editing digital images according
+to instructions.
+## Annotation examples:
+Occupation: Inspectors, Testers, Sorters, Samplers, and Weighers Task: Adjust, clean, or repair products
+or processing equipment to correct defects found during inspections. Label (E0/E1/E2/E3): E0 Explanation:
+The model does not have access to any kind of physicality, and more than half of the task (adjusting, cleaning
+and repairing equipment) described requires hands or other embodiment.
+Occupation: Computer and Information Research Scientists Task: Apply theoretical expertise and
+innovation to create or apply new technology, such as adapting principles for applying computers to new uses.
+Label(E0/E1/E2/E3): E1Explanation: Themodelcanlearntheoreticalexpertiseduringtrainingaspartofits
+general knowledge base, and the principles to adapt can be captured in the text input to the model.
+Activity: Schedule dining reservations. Label (E0/E1/E2/E3): E2 Explanation: Automation technology
+alreadyexistsforthis(e.g. Resy)andit’sunclearwhatanLLMoffersontopofusingthattechnology(no-diff).
+That said, you could build something that allows you to ask the LLM to make a reservation on Resy for you.
+(E3)WORKING PAPER
+Activity: Negotiate purchases or contracts. Label (E0/E1/E2/E3): E2 Explanation: You could have each
+party transcribe their point of view and then feed this to an LLM to resolve any disputes (E3). That said,
+many people would need to buy into using new technological tools to accomplish this (system).
+Occupation: Allergists and ImmunologistsTask: Prescribe medication suchas antihistamines, antibiotics,
+andnasal,oral, topical,orinhaledglucocorticosteroids. Label(E0/E1/E2/E3): E2 Explanation: The model
+can provide guesses for different diagnoses and write prescriptions and case notes. However, it still requires a
+human in the loop using their judgment and knowledge to make the final decision.
+—
+B O*NET Basic Skills Definitions
+Basic Skills
+Developed capacities that facilitate learning or the more rapid acquisition of knowledge.
+Content
+Background structures needed to work with and acquire more specific skills in a variety of different domains.
+•ReadingComprehension —Understandingwrittensentencesandparagraphsinwork-relateddocu-
+ments.
+•ActiveListening —Givingfullattentiontowhatotherpeoplearesaying,takingtimetounderstand
+the points being made, asking questions as appropriate, and not interrupting at inappropriate times.
+•Writing— Communicating effectively in writing as appropriate for the needs of the audience.
+•Speaking — Talking to others to convey information effectively.
+•Mathematics — Using mathematics to solve problems.
+•Science— Using scientific rules and methods to solve problems.
+Process
+Procedures that contribute to the more rapid acquisition of knowledge and skill across a variety of domains
+•CriticalThinking —Usinglogicandreasoningtoidentifythestrengthsandweaknessesofalternative
+solutions, conclusions or approaches to problems.
+•Active Learning — Understanding the implications of new information for both current and future
+problem-solving and decision-making.
+•Learning Strategies — Selecting and using training/instructional methods and procedures appropriate
+for the situation when learning or teaching new things.
+•Monitoring —Monitoring/Assessingperformanceofyourself,otherindividuals,ororganizationsto
+make improvements or take corrective action.WORKING PAPER
+Cross-Functional Skills
+Note: We selected only Programming from the list of cross-functional skills because of our prior knowledge
+about the models’ ability to code.
+•Programming - Writing computer programs for various purposes.
+Median Income Emp (000s) H𝛼𝛼𝛼M𝛼𝛼𝛼H𝛽𝛽𝛽M𝛽𝛽𝛽H𝜁𝜁𝜁M𝜁𝜁𝜁
+No formal educational credential $31,900 36,187 0.05 0.06 0.10 0.10 0.15 0.15
+High school diploma or equivalent $45,470 67,033 0.09 0.13 0.20 0.25 0.31 0.37
+Postsecondary nondegree award $48,315 9,636 0.07 0.15 0.19 0.28 0.31 0.41
+Some college, no degree $40,970 2,898 0.23 0.34 0.39 0.53 0.55 0.72
+Associate’s degree $60,360 3,537 0.12 0.14 0.31 0.36 0.49 0.59
+Bachelor’s degree $78,375 71,698 0.23 0.17 0.47 0.51 0.70 0.84
+Master’s degree $79,605 3,216 0.26 0.14 0.46 0.44 0.66 0.74
+Doctoral or professional degree $82,420 5,290 0.21 0.13 0.41 0.43 0.60 0.74
+Table 10: Mean exposure scores for occupations, grouped by typical education needed for entry into the
+occupation. Alongside exposure scores, we display the median of median annual income for each occupation,
+as well as the total number of workers in each group, in thousands.
+C Industrial and Productivity Exposure
+Figures 6 and 7 show the overall employment-weighted relative exposure of 3-digit NAICS industries
+according to human raters and GPT-4 respectively (based on our exposure rubric). The impact potential
+is present across nearly all industries, with wide heterogeneity. Both methods agree generally on relative
+exposures: data processing, information processing, and hospitals all have high exposure. 9
+Recentproductivitygrowth(bothtotalfactorandlabor)appearsuncorrelatedwithexposureaswell. FiguresC
+and Cshowlittle relationship between productivitygrowthsince 2012 andcurrent exposureto LLMs asrated
+by the model. A high correlation between already fast-growing productive industries and exposure might
+9Aggregationsaredoneaccordingtothe 𝛽methoddescribedabove. Taskweightsforsupplementaltasksarehalfthecoretask
+weights, summing to one within an occupation. Occupation counts are used as weights to build industry-level measures of exposure.WORKING PAPER
+Figure 6WORKING PAPER
+Figure 7WORKING PAPER
+meananexacerbationofBaumol’scostdisease. Inotherwords,ifLLMsarelikelytoincreaseproductivity
+differentially across industries, one concern is that the most productive would become even more productive.
+Withinelasticdemandfortheproductionofthoseindustries,themostproductivesectorswouldshrinkasa
+proportion of inputs in the economy. We see little to suggest this will be the case. Productivity growth since
+2012 and exposure to LLM technologies appear unrelated. 10
+10Asabove,aggregationsaredoneaccordingtothe 𝛽methoddescribedabove. Taskweightsforsupplementaltasksarehalfthe
+core task weights, summing to one within an occupation. Occupation counts are used as weights to build industry-level measures of
+exposure.WORKING PAPER
+D Occupations Without Any Exposed Tasks
+Occupations with no labeled exposed tasks
+Agricultural Equipment Operators
+Athletes and Sports Competitors
+Automotive Glass Installers and Repairers
+Bus and Truck Mechanics and Diesel Engine Specialists
+Cement Masons and Concrete Finishers
+Cooks, Short Order
+Cutters and Trimmers, Hand
+Derrick Operators, Oil and Gas
+Dining Room and Cafeteria Attendants and Bartender Helpers
+Dishwashers
+Dredge Operators
+Electrical Power-Line Installers and Repairers
+Excavating and Loading Machine and Dragline Operators, Surface Mining
+Floor Layers, Except Carpet, Wood, and Hard Tiles
+Foundry Mold and Coremakers
+Helpers–Brickmasons, Blockmasons, Stonemasons, and Tile and Marble Setters
+Helpers–Carpenters
+Helpers–Painters, Paperhangers, Plasterers, and Stucco Masons
+Helpers–Pipelayers, Plumbers, Pipefitters, and Steamfitters
+Helpers–Roofers
+Meat, Poultry, and Fish Cutters and Trimmers
+Motorcycle Mechanics
+Paving, Surfacing, and Tamping Equipment Operators
+Pile Driver Operators
+Pourers and Casters, Metal
+Rail-Track Laying and Maintenance Equipment Operators
+Refractory Materials Repairers, Except Brickmasons
+Roof Bolters, Mining
+Roustabouts, Oil and Gas
+Slaughterers and Meat Packers
+Stonemasons
+Tapers
+Tire Repairers and Changers
+Wellhead Pumpers
+Table 11: All 34 occupations for which none of our measures labeled any tasks as exposed.
+References
+Abid, A., Farooqi, M., and Zou, J. (2021). Persistent anti-muslim bias in large language models. In
+Proceedings ofthe2021AAAI/ACM Conference onAI,Ethics,andSociety, AIES ’21, page 298–306,
+New York, NY, USA. Association for Computing Machinery.WORKING PAPER
+Acemoglu,D.(2002). Technicalchange,inequality,andthelabormarket. JournalofEconomic Literature ,
+40.
+Acemoglu, D. and Autor, D. (2011a). Skills, tasks and technologies: Implications for employment and
+earnings. In Handbook oflaboreconomics, volume 4, pages 1043–1171. Elsevier.
+Acemoglu, D. and Autor, D. (2011b). Skills, Tasks and Technologies: Implications for Employment and
+Earnings. InAshenfelter,O.andCard,D.,editors, Handbook of Labor Economics ,volume4of Handbook
+ofLaborEconomics, chapter 12, pages 1043–1171. Elsevier.
+Acemoglu,D.,Autor,D.,Hazell,J.,andRestrepo,P.(2020). Aiandjobs: Evidencefromonlinevacancies.
+Technical report, National Bureau of Economic Research.
+Acemoglu,D.and Restrepo,P.(2018). Theracebetweenmanandmachine: Implicationsoftechnologyfor
+growth, factor shares, and employment. American economic review, 108(6):1488–1542.
+Acemoglu, D. and Restrepo, P. (2019). Automation and new tasks: How technology displaces and reinstates
+labor.JournalofEconomic Perspectives, 33(2):3–30.
+Acemoglu,D.andRestrepo,P.(2022a). Demographicsandautomation. TheReviewofEconomic Studies,
+89(1):1–44.
+Acemoglu, D. and Restrepo, P. (2022b). Tasks, automation, and the rise in us wage inequality. Econometrica ,
+90(5):1973–2016.
+Aghion, P., Jones, B. F., and Jones, C. I. (2018). Artificial intelligence and economic growth. In The
+economics ofartificialintelligence: Anagenda, pages 237–282. University of Chicago Press.
+Agrawal, A. K., Gans, J. S., and Goldfarb, A. (2021). Ai adoption and system-wide change. Technical report,
+National Bureau of Economic Research.
+Arntz, M., Gregory, T., and Zierahn, U. (2017). Revisiting the risk of automation. Economics Letters,
+159:157–160.
+Autor, D., Chin, C., Salomons, A. M., and Seegmiller, B. (2022a). New frontiers: The origins and content of
+new work, 1940–2018. Technical report, National Bureau of Economic Research.
+Autor, D., Mindell, D. A., and Reynolds, E. B. (2022b). TheWorkoftheFuture:Building BetterJobsinan
+AgeofIntelligent Machines. The MIT Press.
+Autor, D. H., Katz, L. F., and Kearney, M. S. (2006). The polarization of the us labor market. American
+economic review, 96(2):189–194.
+Autor, D. H., Levy, F., and Murnane, R. J. (2003). The skill content of recent technological change: An
+empirical exploration. TheQuarterly journalofeconomics, 118(4):1279–1333.
+Babina, T., Fedyk, A., He, A., and Hodson, J. (2021). Artificial intelligence, firm growth, and product
+innovation. FirmGrowth,andProductInnovation (November 9,2021).
+Bai, Y., Jones, A., Ndousse, K., Askell, A., Chen, A., DasSarma, N., Drain, D., Fort, S., Ganguli, D.,
+Henighan, T., Joseph, N., Kadavath, S., Kernion, J., Conerly, T., El-Showk, S., Elhage, N., Hatfield-Dodds,
+Z., Hernandez, D., Hume, T., Johnston, S., Kravec, S., Lovitt, L., Nanda, N., Olsson, C., Amodei, D.,
+Brown,T.,Clark,J.,McCandlish,S.,Olah,C.,Mann,B.,andKaplan,J.(2022). TrainingaHelpfuland
+Harmless Assistant with Reinforcement Learning from Human Feedback. arXiv:2204.05862 [cs].WORKING PAPER
+Baumol,W.J.(2012). Thecostdisease:Whycomputers getcheaperandhealthcaredoesn’t. Yaleuniversity
+press.
+Benzell, S. G., Kotlikoff, L. J., LaGarda, G., and Ye, V. Y. (2021). Simulating endogenous global automation.
+Working Paper 29220, National Bureau of Economic Research.
+Bessen, J. (2018). Artificial intelligence and jobs: The role of demand. In Theeconomics ofartificial
+intelligence: anagenda, pages 291–307. University of Chicago Press.
+BLS (2022). Employment by detailed occupation.
+BLS (2023a). Demographic characteristics (cps).
+BLS (2023b). Occupational outlook handbook a-z index.
+Bommasani, R., Hudson, D. A., Adeli, E., Altman, R., Arora, S., von Arx, S., Bernstein, M. S., Bohg, J.,
+Bosselut, A., Brunskill, E., et al. (2021). On the opportunities and risks of foundation models. arXiv
+preprintarXiv:2108.07258.
+Bresnahan, T. (2019). Artificial intelligence technologies and aggregate growth prospects.
+Bresnahan,T.,Greenstein,S.,Brownstone,D.,andFlamm,K.(1996). Technicalprogressandco-invention
+in computing and in the uses of computers. Brookings PapersonEconomic Activity.Microeconomics ,
+1996:1–83.
+Bresnahan, T. F. (1999). Computerisation and wage dispersion: an analytical reinterpretation. Theeconomic
+journal, 109(456):390–415.
+Bresnahan,T.F.,Brynjolfsson,E.,andHitt,L.M.(2002).Informationtechnology,workplaceorganization,and
+the demand for skilled labor: Firm-level evidence. Thequarterly journalofeconomics, 117(1):339–376.
+Bresnahan, T. F. and Trajtenberg, M. (1995). General purpose technologies ‘engines of growth’? Journalof
+econometrics, 65(1):83–108.
+Brown, T., Mann, B., Ryder, N., Subbiah, M., Kaplan, J. D., Dhariwal, P., Neelakantan, A., Shyam, P., Sastry,
+G., Askell, A., et al. (2020). Language models are few-shot learners. Advances inneuralinformation
+processing systems, 33:1877–1901.
+Brynjolfsson,E.,Frank,M.R.,Mitchell,T.,Rahwan,I.,andRock,D.(2023). QuantifyingtheDistributionof
+Machine Learning’s Impact on Work. Forthcoming.
+Brynjolfsson,E.andMitchell,T.(2017). Whatcanmachinelearningdo? workforceimplications. Science,
+358(6370):1530–1534.
+Brynjolfsson, E., Mitchell, T., and Rock, D. (2018). What can machines learn, and what does it mean for
+occupations and the economy? AEAPapersandProceedings, 108:43–47.
+Brynjolfsson, E., Rock, D., and Syverson, C. (2021). The productivity j-curve: How intangibles complement
+general purpose technologies. American Economic Journal:Macroeconomics, 13(1):333–72.
+Chase, H. (2022). LangChain.
+Chen, M., Tworek, J., Jun, H., Yuan, Q., Pinto, H. P. d. O., Kaplan, J., Edwards, H., Burda, Y., Joseph,
+N., Brockman, G., et al. (2021). Evaluating large language models trained on code. arXivpreprint
+arXiv:2107.03374.WORKING PAPER
+Cheng,Z.,Lee,D.,andTambe,P.(2022). Innovae: Generativeaiforunderstandingpatentsandinnovation.
+Available atSSRN.
+Chow, A. R. (2023). Why ChatGPT Is the Fastest Growing Web Platform Ever | Time.
+Cockburn, I. M., Henderson, R., and Stern, S. (2018). The impact of artificial intelligence on innovation: An
+exploratory analysis. In Theeconomics ofartificialintelligence: Anagenda, pages 115–146. University
+of Chicago Press.
+Constantz,J.(2023). Nearlyathirdofwhitecollarworkershavetriedchatgptorotheraiprograms,according
+to a new survey.
+David,P.A.(1990). Thedynamoandthecomputer: anhistoricalperspectiveonthemodernproductivity
+paradox. TheAmerican Economic Review, 80(2):355–361.
+Devlin, J., Chang, M.-W., Lee, K., and Toutanova, K. (2019). Bert: Pre-training of deep bidirectional
+transformers for language understanding. ArXiv, abs/1810.04805.
+Dixon, J., Hong, B., and Wu, L. (2021). The robot revolution: Managerial and employment consequences for
+firms.Management Science, 67(9):5586–5605.
+Feigenbaum, J. J. and Gross, D. P. (2021). Organizational frictions and increasing returns to automation:
+Lessons from at&t in the twentieth century. Technical report, National Bureau of Economic Research.
+Felten, E., Raj, M., and Seamans, R. (2023). How will language modelers like chatgpt affect occupations and
+industries? arXivpreprintarXiv:2303.01157.
+Felten, E. W., Raj, M., and Seamans, R. (2018). A method to link advances in artificial intelligence to
+occupational abilities. AEAPapersandProceedings, 108:54–57.
+Frey, C. B. (2019). The technology trap. In TheTechnology Trap. Princeton University Press.
+Frey,C.B.andOsborne,M.A.(2017).Thefutureofemployment: Howsusceptiblearejobstocomputerisation?
+Technological Forecasting andSocialChange, 114(C):254–280.
+Goldfarb,A.,Taska,B.,andTeodoridis,F.(2023). Couldmachinelearningbeageneralpurposetechnology? a
+comparison of emerging technologies using data from online job postings. Research Policy, 52(1):104653.
+Goldstein,J.A.,Sastry,G.,Musser,M.,DiResta,R.,Gentzel,M.,andSedova,K.(2023). Generativelanguage
+models and automated influence operations: Emerging threats and potential mitigations.
+Grace,K.,Salvatier,J.,Dafoe,A.,Zhang,B.,andEvans,O.(2018). Whenwillaiexceedhumanperformance?
+evidence from ai experts. JournalofArtificial Intelligence Research, 62:729–754.
+Hernandez,D.,Kaplan,J.,Henighan,T.,andMcCandlish,S.(2021). Scalinglawsfortransfer. arXivpreprint
+arXiv:2102.01293.
+Horton,J.J.(2023). Largelanguagemodelsassimulatedeconomicagents: Whatcanwelearnfromhomo
+silicus?arXivpreprintarXiv:2301.07543.
+Huang, M.-H. and Rust, R. T. (2018). Artificial intelligence in service. Journalofserviceresearch,
+21(2):155–172.
+Kaplan,J.,McCandlish,S.,Henighan,T.,Brown,T.B.,Chess,B.,Child,R.,Gray,S.,Radford,A.,Wu,J.,
+and Amodei, D. (2020). Scaling laws for neural language models. arXivpreprintarXiv:2001.08361.WORKING PAPER
+Katz,L.F.andMurphy,K.M.(1992). Changesinrelativewages,1963–1987: supplyanddemandfactors.
+Thequarterly journalofeconomics, 107(1):35–78.
+Khlaaf, H., Mishkin, P., Achiam, J., Krueger, G., and Brundage, M. (2022). A hazard analysis framework for
+code synthesis large language models.
+Klinova, K. and Korinek, A. (2021). Ai and shared prosperity. In AIES2021-Proceedings ofthe2021
+AAAI/ACM Conference onAI,Ethics,andSociety.
+Kogan, L., Papanikolaou, D., Schmidt, L. D. W., and Seegmiller, B. (2021). Technology, vintage-specific
+humancapital,andlabordisplacement: Evidencefromlinkingpatentswithoccupations. WorkingPaper
+29552, National Bureau of Economic Research.
+Korinek, A. (2023). Language models and cognitive automation for economic research. Technical report,
+National Bureau of Economic Research.
+Korinek, A. and Stiglitz, J. E. (2018). Artificial intelligence and its implications for income distribution
+and unemployment. In Theeconomics ofartificialintelligence: Anagenda, pages 349–390. University of
+Chicago Press.
+Lipsey,R.G.,Carlaw,K.I.,andBekar,C.T.(2005). Economic transformations: generalpurposetechnologies
+andlong-term economic growth. Oup Oxford.
+Meindl,B.,Frank,M.R.,andMendonça,J.(2021). Exposureofoccupationstotechnologiesofthefourth
+industrial revolution. arXivpreprintarXiv:2110.13317.
+Mialon, G., Dessì, R., Lomeli, M., Nalmpantis, C., Pasunuru, R., Raileanu, R., Rozière, B., Schick, T.,
+Dwivedi-Yu, J., Celikyilmaz, A., et al. (2023). Augmented language models: a survey. arXivpreprint
+arXiv:2302.07842.
+Moll,B.,Rachel,L.,andRestrepo,P.(2021). Unevengrowth: Automation’simpactonincomeandwealth
+inequality. SSRNElectronic Journal.
+Mollick,E.R.andMollick,L.(2022). Newmodesoflearningenabledbyaichatbots: Threemethodsand
+assignments. Available atSSRN.
+Noy, S. and Zhang, W. (2023). Experimental evidence on the productivity effects of generative artificial
+intelligence. Available atSSRN4375283.
+O*NET (2023). O*net 27.2 database.
+OpenAI (2022). Introducing chatgpt.
+OpenAI (2023a). Gpt-4 system card. Technical report, OpenAI.
+OpenAI (2023b). Gpt-4 technical report. Technical report, OpenAI.
+Ouyang,L.,Wu,J.,Jiang,X.,Almeida,D.,Wainwright,C.L.,Mishkin,P.,Zhang,C.,Agarwal,S.,Slama,
+K.,Ray,A.,etal.(2022). Traininglanguagemodelstofollowinstructionswithhumanfeedback. arXiv
+preprintarXiv:2203.02155.
+Peng,S.,Kalliamvakou,E.,Cihon,P.,andDemirer,M.(2023). Theimpactofaiondeveloperproductivity:
+Evidence from github copilot. arXivpreprintarXiv:2302.06590.WORKING PAPER
+Radford, A., Wu, J., Child, R., Luan, D., Amodei, D., Sutskever, I., et al. (2019). Language models are
+unsupervised multitask learners. OpenAIblog, 1(8):9.
+ResumeBuilder.com (2023). 1 in 4 companies have already replaced workers with chatgpt.
+Rock, D. (2019). Engineering value: The returns to technological talent and investments in artificial
+intelligence. Available atSSRN3427412.
+Schick,T.,Dwivedi-Yu,J.,Dessì,R.,Raileanu,R.,Lomeli,M.,Zettlemoyer,L.,Cancedda,N.,andScialom,T.
+(2023). Toolformer: Languagemodelscanteachthemselvestousetools. arXivpreprintarXiv:2302.04761 .
+Schramowski, P., Turan, C., Andersen, N., Rothkopf, C. A., and Kersting, K. (2022). Large pre-trained
+languagemodelscontainhuman-likebiasesofwhatisrightandwrongtodo. NatureMachineIntelligence ,
+4(3):258–268.
+Shahaf,D.andHorvitz,E.(2010).Generalizedtaskmarketsforhumanandmachinecomputation. Proceedings
+oftheAAAIConference onArtificial Intelligence.
+Singla, A. K., Horvitz, E., Kohli, P., and Krause, A. (2015). Learning to hire teams. In AAAIConference on
+HumanComputation &Crowdsourcing.
+Solaiman,I.,Brundage,M.,Clark,J.,Askell,A.,Herbert-Voss,A.,Wu,J.,Radford,A.,Krueger,G.,Kim,
+J. W., Kreps, S., McCain, M., Newhouse, A., Blazakis, J., McGuffie, K., and Wang, J. (2019). Release
+strategies and the social impacts of language models.
+Sorensen, T., Robinson, J., Rytting, C., Shaw, A., Rogers, K., Delorey, A., Khalil, M., Fulda, N., and Wingate,
+D. (2022). An information-theoretic approach to prompt engineering without ground truth labels. In
+Proceedings ofthe60thAnnualMeetingoftheAssociation forComputational Linguistics (Volume 1:
+LongPapers). Association for Computational Linguistics.
+Thoppilan, R., De Freitas, D., Hall, J., Shazeer, N., Kulshreshtha, A., Cheng, H.-T., Jin, A., Bos, T., Baker, L.,
+Du, Y., et al. (2022). Lamda: Language models for dialog applications. arXivpreprintarXiv:2201.08239 .
+Tolan, S., Pesole, A., Martínez-Plumed, F., Fernández-Macías, E., Hernández-Orallo, J., and Gómez, E.
+(2021). Measuring the occupational impact of ai: tasks, cognitive abilities and ai benchmarks. Journalof
+Artificial Intelligence Research, 71:191–236.
+VanReenen,J.(2011). Wageinequality,technologyandtrade: 21stcenturyevidence. Laboureconomics ,
+18(6):730–741.
+Webb,M.(2020). Theimpactofartificialintelligenceonthelabormarket. Workingpaper,StanfordUniversity.
+Weidinger, L. et al. (2021). Ethical and social risks of harm from language models. arXiv:2112.04359 [cs].
+Weidinger,L.,Uesato,J.,Rauh,M.,Griffin,C.,Huang,P.-S.,Mellor,J.,Glaese,A.,Cheng,M.,Balle,B.,
+Kasirzadeh,A.,Biles,C.,Brown,S.,Kenton,Z.,Hawkins,W.,Stepleton,T.,Birhane,A.,Hendricks,L.A.,
+Rimell,L.,Isaac,W.,Haas,J.,Legassick,S.,Irving,G.,andGabriel,I.(2022). Taxonomyofrisksposedby
+language models. In 2022ACMConference onFairness, Accountability, andTransparency , FAccT ’22,
+page 214–229, New York, NY, USA. Association for Computing Machinery.
+Zolas,N.,Kroff,Z.,Brynjolfsson,E.,McElheran,K.,Beede,D.N.,Buffington,C.,Goldschlag,N.,Foster,L.,
+and Dinlersoz, E. (2021). Advanced technologies adoption and use by us firms: Evidence from the annual
+business survey. Technical report, National Bureau of Economic Research.

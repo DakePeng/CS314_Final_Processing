@@ -1,0 +1,531 @@
+arXiv:1605.07725v4  [stat.ML]  16 Nov 2021Published as a conference paper at ICLR 2017
+ADVERSARIAL TRAINING METHODS
+FOR SEMI-SUPERVISED TEXT CLASSIFICATION
+Takeru Miyato1,2∗, Andrew M Dai2, Ian Goodfellow3
+takeru.miyato@gmail.com, adai@google.com, ian@openai. com
+1Preferred Networks, Inc., ATR Cognitive Mechanisms Labora tories, Kyoto University
+2Google Brain
+3OpenAI
+ABSTRACT
+Adversarial training provides a means of regularizing supe rvised learning al-
+gorithms while virtual adversarial training is able to exte nd supervised learn-
+ing algorithms to the semi-supervised setting. However, bo th methods require
+making small perturbations to numerous entries of the input vector, which
+is inappropriate for sparse high-dimensional inputs such a s one-hot word rep-
+resentations. We extend adversarial and virtual adversari al training to the
+text domain by applying perturbations to the word embedding s in a recur-
+rent neural network rather than to the original input itself . The proposed
+method achieves state of the art results on multiple benchma rk semi-supervised
+and purely supervised tasks. We provide visualizations and analysis show-
+ing that the learned word embeddings have improved in qualit y and that
+while training, the model is less prone to overﬁtting. Code i s available at
+https://github.com/tensorﬂow/models/tree/master/res earch/adversarial_text.
+1 I NTRODUCTION
+Adversarial examples are examples that are created by making small perturbations to the input de-
+signed to signiﬁcantly increase the loss incurred by a machi ne learning model (Szegedy et al., 2014;
+Goodfellow et al., 2015). Several models, including state o f the art convolutional neural networks,
+lack the ability to classify adversarial examples correctl y, sometimes even when the adversarial
+perturbation is constrained to be so small that a human obser ver cannot perceive it. Adversarial
+training is the process of training a model to correctly classify both unmodiﬁed examples and ad-
+versarial examples. It improves not only robustness to adve rsarial examples, but also generalization
+performance for original examples. Adversarial training r equires the use of labels when training
+models that use a supervised cost, because the label appears in the cost function that the adversarial
+perturbation is designed to maximize. Virtual adversarial training (Miyato et al., 2016) extends the
+idea of adversarial training to the semi-supervised regime and unlabeled examples. This is done by
+regularizing the model so that given an example, the model wi ll produce the same output distribution
+as it produces on an adversarial perturbation of that exampl e. Virtual adversarial training achieves
+good generalization performance for both supervised and se mi-supervised learning tasks.
+Previous work has primarily applied adversarial and virtua l adversarial training to image classiﬁca-
+tion tasks. In this work, we extend these techniques to text c lassiﬁcation tasks and sequence models.
+Adversarial perturbations typically consist of making sma ll modiﬁcations to very many real-valued
+inputs. For text classiﬁcation, the input is discrete, and u sually represented as a series of high-
+dimensional one-hot vectors. Because the set of high-dimen sional one-hot vectors does not admit
+inﬁnitesimal perturbation, we deﬁne the perturbation on co ntinuous word embeddings instead of dis-
+crete word inputs. Traditional adversarial and virtual adv ersarial training can be interpreted both as a
+regularization strategy (Szegedy et al., 2014; Goodfellow et al., 2015; Miyato et al., 2016) and as de-
+fense against an adversary who can supply malicious inputs ( Szegedy et al., 2014; Goodfellow et al.,
+2015). Since the perturbed embedding does not map to any word and the adversary presumably does
+not have access to the word embedding layer, our proposed tra ining strategy is no longer intended as
+∗This work was done when the author was at Google Brain.
+1Published as a conference paper at ICLR 2017
+a defense against an adversary. We thus propose this approac h exclusively as a means of regularizing
+a text classiﬁer by stabilizing the classiﬁcation function .
+We show that our approach with neural language model unsuper vised pretraining as proposed
+by Dai & Le (2015) achieves state of the art performance for mu ltiple semi-supervised text clas-
+siﬁcation tasks, including sentiment classiﬁcation and to pic classiﬁcation. We emphasize that opti-
+mization of only one additional hyperparameter ǫ, the norm constraint limiting the size of the adver-
+sarial perturbations, achieved such state of the art perfor mance. These results strongly encourage
+the use of our proposed method for other text classiﬁcation t asks. We believe that text classiﬁca-
+tion is an ideal setting for semi-supervised learning becau se there are abundant unlabeled corpora
+for semi-supervised learning algorithms to leverage. This work is the ﬁrst work we know of to use
+adversarial and virtual adversarial training to improve a t ext or RNN model.
+We also analyzed the trained models to qualitatively charac terize the effect of adversarial and vir-
+tual adversarial training. We found that adversarial and vi rtual adversarial training improved word
+embeddings over the baseline methods.
+2 M ODEL
+We denote a sequence of Twords as {w(t)|t= 1,...,T}, and a corresponding target as y. To
+transform a discrete word input to a continuous vector, we de ﬁne the word embedding matrix V∈
+R(K+1)×DwhereKis the number of words in the vocabulary and each row vkcorresponds to
+the word embedding of the i-th word. Note that the (K+ 1) -th word embedding is used as an
+embedding of an ‘end of sequence (eos)’ token, veos. As a text classiﬁcation model, we used a simple
+LSTM-based neural network model, shown in Figure 1a. At time stept, the input is the discrete
+wordw(t), and the corresponding word embedding is v(t). We additionally tried the bidirectional
+veos 
+weos y
+w(2) w(3) v(3) v(2) LSTM 
+w(1) v(1) 
+(a) LSTM-based text classiﬁcation model.¯v(2) ¯v(3) veos r(2) r(3) 
+w(2) w(3) weos y
+LSTM 
+¯v(1) r(1) 
+w(1) 
+(b) The model with perturbed embeddings.
+Figure 1: Text classiﬁcation models with clean embeddings ( a) and with perturbed embeddings (b).
+LSTM architecture (Graves & Schmidhuber, 2005) since this i s used by the current state of the
+art method (Johnson & Zhang, 2016b). For constructing the bi directional LSTM model for text
+classiﬁcation, we add an additional LSTM on the reversed seq uence to the unidirectional LSTM
+model described in Figure 1. The model then predicts the labe l on the concatenated LSTM outputs
+of both ends of the sequence.
+In adversarial and virtual adversarial training, we train t he classiﬁer to be robust to perturbations of
+the embeddings, shown in Figure 1b. These perturbations are described in detail in Section 3. At
+present, it is sufﬁcient to understand that the perturbatio ns are of bounded norm. The model could
+trivially learn to make the perturbations insigniﬁcant by l earning embeddings with very large norm.
+To prevent this pathological solution, when we apply advers arial and virtual adversarial training
+to the model we deﬁned above, we replace the embeddings vkwith normalized embeddings ¯vk,
+deﬁned as:
+¯vk=vk−E(v)/radicalbig
+Var(v)whereE(v) =K/summationdisplay
+j=1fjvj,Var(v) =K/summationdisplay
+j=1fj(vj−E(v))2, (1)
+wherefiis the frequency of the i-th word, calculated within all training examples.
+2Published as a conference paper at ICLR 2017
+3 A DVERSARIAL AND VIRTUAL ADVERSARIAL TRAINING
+Adversarial training (Goodfellow et al., 2015) is a novel regularization method f or classiﬁers to
+improve robustness to small, approximately worst case pert urbations. Let us denote xas the input
+andθas the parameters of a classiﬁer. When applied to a classiﬁer , adversarial training adds the
+following term to the cost function:
+−logp(y|x+radv;θ) whereradv= argmin
+r,/bardblr/bardbl≤ǫlogp(y|x+r;ˆθ) (2)
+whereris a perturbation on the input and ˆθis a constant set to the current parameters of a classiﬁer.
+The use of the constant copy ˆθrather than θindicates that the backpropagation algorithm should not
+be used to propagate gradients through the adversarial exam ple construction process. At each step
+of training, we identify the worst case perturbations radvagainst the current model p(y|x;ˆθ)in Eq.
+(2), and train the model to be robust to such perturbations th rough minimizing Eq. (2) with respect
+toθ. However, we cannot calculate this value exactly in general , because exact minimization with
+respect to ris intractable for many interesting models such as neural ne tworks. Goodfellow et al.
+(2015) proposed to approximate this value by linearizing logp(y|x;ˆθ)aroundx. With a linear
+approximation and a L2norm constraint in Eq.(2), the resulting adversarial pertu rbation is
+radv=−ǫg//ba∇dblg/ba∇dbl2whereg=∇xlogp(y|x;ˆθ).
+This perturbation can be easily computed using backpropaga tion in neural networks.
+Virtual adversarial training (Miyato et al., 2016) is a regularization method closely rel ated to adver-
+sarial training. The additional cost introduced by virtual adversarial training is the following:
+KL[p(· |x;ˆθ)||p(· |x+rv-adv;θ)] (3)
+whererv-adv= argmax
+r,/bardblr/bardbl≤ǫKL[p(· |x;ˆθ)||p(· |x+r;ˆθ)] (4)
+whereKL[p||q]denotes the KL divergence between distributions pandq. By minimizing Eq.(3), a
+classiﬁer is trained to be smooth. This can be considered as m aking the classiﬁer resistant to pertur-
+bations in directions to which it is most sensitive on the cur rent model p(y|x;ˆθ). Virtual adversarial
+loss Eq.(3) requires only the input xand does not require the actual label ywhile adversarial loss
+deﬁned in Eq.(2) requires the label y. This makes it possible to apply virtual adversarial traini ng
+to semi-supervised learning. Although we also in general ca nnot analytically calculate the virtual
+adversarial loss, Miyato et al. (2016) proposed to calculat e the approximated Eq.(3) efﬁciently with
+backpropagation.
+As described in Sec. 2, in our work, we apply the adversarial p erturbation to word embeddings,
+rather than directly to the input. To deﬁne adversarial pert urbation on the word embeddings, let us
+denote a concatenation of a sequence of (normalized) word em bedding vectors [¯v(1),¯v(2),...,¯v(T)]
+ass, and the model conditional probability of ygivensasp(y|s;θ)whereθare model parameters.
+Then we deﬁne the adversarial perturbation radvonsas:
+radv=−ǫg//ba∇dblg/ba∇dbl2whereg=∇slogp(y|s;ˆθ). (5)
+To be robust to the adversarial perturbation deﬁned in Eq.(5 ), we deﬁne the adversarial loss by
+Ladv(θ) =−1
+NN/summationdisplay
+n=1logp(yn|sn+radv,n;θ) (6)
+whereNis the number of labeled examples. In our experiments, adver sarial training refers to
+minimizing the negative log-likelihood plus Ladvwith stochastic gradient descent.
+In virtual adversarial training on our text classiﬁcation m odel, at each training step, we calculate the
+below approximated virtual adversarial perturbation:
+rv-adv=ǫg//ba∇dblg/ba∇dbl2whereg=∇s+dKL/bracketleftBig
+p(· |s;ˆθ)||p(· |s+d;ˆθ)/bracketrightBig
+(7)
+3Published as a conference paper at ICLR 2017
+wheredis aTD-dimensional small random vector. This approximation corr esponds to a 2nd-
+order Taylor expansion and a single iteration of the power me thod on Eq.(3) as in previous
+work (Miyato et al., 2016). Then the virtual adversarial los s is deﬁned as:
+Lv-adv(θ) =1
+N′N′/summationdisplay
+n′=1KL/bracketleftBig
+p(· |sn′;ˆθ)||p(· |sn′+rv-adv,n′;θ)/bracketrightBig
+(8)
+whereN′is the number of both labeled and unlabeled examples.
+See Warde-Farley & Goodfellow (2016) for a recent review of a dversarial training methods.
+4 E XPERIMENTAL SETTINGS
+All experiments used TensorFlow (Abadi et al., 2016) on GPUs . To compare our method with other
+text classiﬁcation methods, we tested on 5 different text da tasets. We summarize information about
+each dataset in Table 1.
+IMDB (Maas et al., 2011)1is a standard benchmark movie review dataset for sentiment c lassiﬁca-
+tion. Elec (Johnson & Zhang, 2015b)2 3is an Amazon electronic product review dataset. Rotten
+Tomatoes (Pang & Lee, 2005) consists of short snippets of mov ie reviews, for sentiment classiﬁ-
+cation. The Rotten Tomatoes dataset does not come with separ ate test sets, thus we divided all
+examples randomly into 90% for the training set, and 10% for t he test set. We repeated train-
+ing and evaluation ﬁve times with different random seeds for the division. For the Rotten Toma-
+toes dataset, we also collected unlabeled examples using mo vie reviews from the Amazon Re-
+views dataset (McAuley & Leskovec, 2013)4. DBpedia (Lehmann et al., 2015; Zhang et al., 2015)
+is a dataset of Wikipedia pages for category classiﬁcation. Because the DBpedia dataset has no
+additional unlabeled examples, the results on DBpedia are f or the supervised learning task only.
+RCV1 (Lewis et al., 2004) consists of news articles from the R euters Corpus. For the RCV1 dataset,
+we followed previous works (Johnson & Zhang, 2015b) and we co nducted a single topic classiﬁca-
+tion task on the second level topics. We used the same divisio n into training, test and unlabeled
+sets as Johnson & Zhang (2015b). Regarding pre-processing, we treated any punctuation as spaces.
+We converted all words to lower-case on the Rotten Tomatoes, DBpedia, and RCV1 datasets. We
+removed words which appear in only one document on all datase ts. On RCV1, we also removed
+words in the English stop-words list provided by Lewis et al. (2004)5.
+Table 1: Summary of datasets. Note that unlabeled examples f or the Rotten Tomatoes dataset are
+not provided so we instead use the unlabeled Amazon reviews d ataset.
+Classes Train Test Unlabeled Avg. T MaxT
+IMDB 2 25,000 25,000 50,000 239 2,506
+Elec 2 24,792 24,897 197,025 110 5,123
+Rotten Tomatoes 2 9596 1066 7,911,684 20 54
+DBpedia 14 560,000 70,000 – 49 953
+RCV1 55 15,564 49,838 668,640 153 9,852
+4.1 R ECURRENT LANGUAGE MODEL PRE -TRAINING
+Following Dai & Le (2015), we initialized the word embedding matrix and LSTM weights with a
+pre-trained recurrent language model (Bengio et al., 2006; Mikolov et al., 2010) that was trained on
+1http://ai.stanford.edu/~amaas/data/sentiment/
+2http://riejohnson.com/cnn_data.html
+3There are some duplicated reviews in the original Elec datas et, and we used the dataset with removal of
+the duplicated reviews, provided by Johnson & Zhang (2015b) , thus there are slightly fewer examples shown
+in Table 1 than the ones in previous works(Johnson & Zhang, 20 15b; 2016b).
+4http://snap.stanford.edu/data/web-Amazon.html
+5http://www.ai.mit.edu/projects/jmlr/papers/volume5/ lewis04a/lyrl2004_rcv1v2_README.htm
+4Published as a conference paper at ICLR 2017
+both labeled and unlabeled examples. We used a unidirection al single-layer LSTM with 1024 hidden
+units. The word embedding dimension Dwas 256 on IMDB and 512 on the other datasets. We used
+a sampled softmax loss with 1024 candidate samples for train ing. For the optimization, we used the
+Adam optimizer (Kingma & Ba, 2015), with batch size 256, an in itial learning rate of 0.001, and
+a 0.9999 learning rate exponential decay factor at each trai ning step. We trained for 100,000 steps.
+We applied gradient clipping with norm set to 1.0 on all the pa rameters except word embeddings. To
+reduce runtime on GPU, we used truncated backpropagation up to 400 words from each end of the
+sequence. For regularization of the recurrent language mod el, we applied dropout (Srivastava et al.,
+2014) on the word embedding layer with 0.5 dropout rate.
+For the bidirectional LSTM model, we used 512 hidden units LS TM for both the standard order and
+reversed order sequences, and we used 256 dimensional word e mbeddings which are shared with
+both of the LSTMs. The other hyperparameters are the same as f or the unidirectional LSTM. We
+tested the bidirectional LSTM model on IMDB, Elec and RCV bec ause there are relatively long
+sentences in the datasets.
+Pretraining with a recurrent language model was very effect ive on classiﬁcation performance on all
+the datasets we tested on and so our results in Section 5 are wi th this pretraining.
+4.2 T RAINING CLASSIFICATION MODELS
+After pre-training, we trained the text classiﬁcation mode l shown in Figure 1a with adversarial and
+virtual adversarial training as described in Section 3. Bet ween the softmax layer for the target yand
+the ﬁnal output of the LSTM, we added a hidden layer, which has dimension 30 on IMDB, Elec
+and Rotten Tomatoes, and 128 on DBpedia and RCV1. The activat ion function on the hidden layer
+was ReLU(Jarrett et al., 2009; Nair & Hinton, 2010; Glorot et al., 2011). For optimization, we again
+used the Adam optimizer, with 0.0005 initial learning rate 0 .9998 exponential decay. Batch sizes
+are 64 on IMDB, Elec, RCV1, and 128 on DBpedia. For the Rotten T omatoes dataset, for each
+step, we take a batch of size 64 for calculating the loss of the negative log-likelihood and adversarial
+training, and 512 for calculating the loss of virtual advers arial training. Also for Rotten Tomatoes,
+we used texts with lengths Tless than 25 in the unlabeled dataset. We iterated 10,000 tra ining steps
+on all datasets except IMDB and DBpedia, for which we used 15, 000 and 20,000 training steps
+respectively. We again applied gradient clipping with the n orm as 1.0 on all the parameters except
+the word embedding. We also used truncated backpropagation up to 400 words, and also generated
+the adversarial and virtual adversarial perturbation up to 400 words from each end of the sequence.
+We found the bidirectional LSTM to converge more slowly, so w e iterated for 15,000 training steps
+when training the bidirectional LSTM classiﬁcation model.
+For each dataset, we divided the original training set into t raining set and validation set, and we
+roughly optimized some hyperparameters shared with all of t he methods; (model architecture, batch-
+size, training steps) with the validation performance of th e base model with embedding dropout. For
+each method, we optimized two scalar hyperparameters with t he validation set. These were the
+dropout rate on the embeddings and the norm constraint ǫof adversarial and virtual adversarial
+training. Note that for adversarial and virtual adversaria l training, we generate the perturbation after
+applying embedding dropout, which we found performed the be st. We did not do early stopping with
+these methods. The method with only pretraining and embeddi ng dropout is used as the baseline
+(referred to as Baseline in each table).
+5 R ESULTS
+5.1 T EST PERFORMANCE ON IMDB DATASET AND MODEL ANALYSIS
+Figure 2 shows the learning curves on the IMDB test set with th e baseline method (only embedding
+dropout and pretraining), adversarial training, and virtu al adversarial training. We can see in Fig-
+ure 2a that adversarial and virtual adversarial training ac hieved lower negative log likelihood than
+the baseline. Furthermore, virtual adversarial training, which can utilize unlabeled data, maintained
+this low negative log-likelihood while the other methods be gan to overﬁt later in training. Regarding
+adversarial and virtual adversarial loss in Figure 2b and 2c , we can see the same tendency as for
+negative log likelihood; virtual adversarial training was able to keep these values lower than other
+5Published as a conference paper at ICLR 2017
+methods. Because adversarial training operates only on the labeled subset of the training data, it
+eventually overﬁts even the task of resisting adversarial p erturbations.
+0 1000 2000 3000 4000 5000
+Step0.00.10.20.30.40.50.60.7T est negative log likelihoodBaseline
+Adversarial
+Virtual adversarial
+(a) Negative log likelihood0 1000 2000 3000 4000 5000
+Step0.00.51.01.52.02.5T est adversarial lossBaseline
+Adversarial
+Virtual adversarial
+(b)Ladv(θ)0 1000 2000 3000 4000 5000
+Step0.00.20.40.60.81.0T est virtual adversarial lossBaseline
+Adversarial
+Virtual adversarial
+(c)Lv-adv(θ)
+Figure 2: Learning curves of (a) negative log likelihood, (b ) adversarial loss (deﬁned in Eq.(6))
+and (c) virtual adversarial loss (deﬁned in Eq.(8)) on IMDB. All values were evaluated on the test
+set. Adversarial and virtual adversarial loss were evaluat ed withǫ= 5.0. The optimal value of ǫ
+differs between adversarial training and virtual adversar ial training, but the value of 5.0performs
+very well for both and provides a consistent point of compari son.
+Table 2 shows the test performance on IMDB with each training method. ‘Adversarial + Virtual Ad-
+versarial’ means the method with both adversarial and virtu al adversarial loss with the shared norm
+constraint ǫ. With only embedding dropout, our model achieved a 7.39% err or rate. Adversarial and
+virtual adversarial training improved the performance rel ative to our baseline, and virtual adversarial
+training achieved performance on par with the state of the ar t, 5.91% error rate. This is despite the
+fact that the state of the art model requires training a bidir ectional LSTM whereas our model only
+uses a unidirectional LSTM. We also show results with a bidir ectional LSTM. Our bidirectional
+LSTM model has the same performance as a unidirectional LSTM with virtual adversarial training.
+A common misconception is that adversarial training is equi valent to training on noisy examples.
+Noise is actually a far weaker regularizer than adversarial perturbations because, in high dimensional
+input spaces, an average noise vector is approximately orth ogonal to the cost gradient. Adversarial
+perturbations are explicitly chosen to consistently incre ase the cost. To demonstrate the superiority
+of adversarial training over the addition of noise, we inclu de control experiments which replaced
+adversarial perturbations with random perturbations from a multivariate Gaussian with scaled norm,
+on each embedding in the sequence. In Table 2, ‘Random pertur bation with labeled examples’ is the
+method in which we replace radvwith random perturbations, and ‘Random perturbation with l abeled
+and unlabeled examples’ is the method in which we replace rv-advwith random perturbations. Every
+adversarial training method outperformed every random per turbation method.
+To visualize the effect of adversarial and virtual adversar ial training on embeddings, we examined
+embeddings trained using each method. Table 3 shows the 10 to p nearest neighbors to ‘good’ and
+‘bad’ with trained embeddings. The baseline and random meth ods are both strongly inﬂuenced
+by the grammatical structure of language, due to the languag e model pretraining step, but are not
+strongly inﬂuenced by the semantics of the text classiﬁcati on task. For example, ‘bad’ appears in the
+list of nearest neighbors to ‘good’ on the baseline and the ra ndom perturbation method. Both ‘bad’
+and ‘good’ are adjectives that can modify the same set of noun s, so it is reasonable for a language
+model to assign them similar embeddings, but this clearly do es not convey much information about
+the actual meaning of the words. Adversarial training ensur es that the meaning of a sentence cannot
+be inverted via a small change, so these words with similar gr ammatical role but different meaning
+become separated. When using adversarial and virtual adver sarial training, ‘bad’ no longer appears
+in the 10 top nearest neighbors to ‘good’. ‘bad’ falls to the 1 9th nearest neighbor for adversarial
+training and 21st nearest neighbor for virtual adversarial training, with cosine distances of 0.463 and
+0.464, respectively. For the baseline and random perturbat ion method, the cosine distances were
+0.361 and 0.377, respectively. In the other direction, the n earest neighbors to ‘bad’ included ‘good’
+as the 4th nearest neighbor for the baseline method and rando m perturbation method. For both
+adversarial methods, ‘good’ drops to the 36th nearest neigh bor of ‘bad‘.
+We also investigated the 15 nearest neighbors to ‘great’ and its cosine distances with the trained
+embeddings. We saw that cosine distance on adversarial and v irtual adversarial training (0.159–
+0.331) were much smaller than ones on the baseline and random perturbation method (0.244–0.399).
+6Published as a conference paper at ICLR 2017
+Table 2: Test performance on the IMDB sentiment classiﬁcati on task. * indicates using pretrained
+embeddings of CNN and bidirectional LSTM.
+Method Test error rate
+Baseline (without embedding normalization) 7.33%
+Baseline 7.39%
+Random perturbation with labeled examples 7.20%
+Random perturbation with labeled and unlabeled examples 6. 78%
+Adversarial 6.21%
+Virtual Adversarial 5.91%
+Adversarial + Virtual Adversarial 6.09%
+Virtual Adversarial (on bidirectional LSTM) 5.91%
+Adversarial + Virtual Adversarial (on bidirectional LSTM) 6.02%
+Full+Unlabeled+BoW (Maas et al., 2011) 11.11%
+Transductive SVM (Johnson & Zhang, 2015b) 9.99%
+NBSVM-bigrams (Wang & Manning, 2012) 8.78%
+Paragraph Vectors (Le & Mikolov, 2014) 7.42%
+SA-LSTM (Dai & Le, 2015) 7.24%
+One-hot bi-LSTM* (Johnson & Zhang, 2016b) 5.94%
+Table 3: 10 top nearest neighbors to ‘good’ and ‘bad’ with the word embeddings trained on each
+method. We used cosine distance for the metric. ‘Baseline’ m eans training with embedding dropout
+and ‘Random’ means training with random perturbation with l abeled examples. ‘Adversarial’ and
+‘Virtual Adversarial’ mean adversarial training and virtu al adversarial training.
+‘good ’ ‘bad’
+Baseline Random Adversarial Virtual
+AdversarialBaseline Random Adversarial Virtual
+Adversarial
+1 great great decent decent terrible terrible terrible terr ible
+2 decent decent great great awful awful awful awful
+3×bad excellent nice nice horrible horrible horrible horrible
+4 excellent nice ﬁne ﬁne ×good ×good poor poor
+5 Good Good entertaining entertaining Bad poor BAD BAD
+6 ﬁne ×bad interesting interesting BAD BAD stupid stupid
+7 nice ﬁne Good Good poor Bad Bad Bad
+8 interesting interesting excellent cool stupid stupid lau ghable laughable
+9 solid entertaining solid enjoyable Horrible Horrible lam e lame
+10 entertaining solid cool excellent horrendous horrendou s Horrible Horrible
+The much weaker positive word ‘good’ also moved from the 3rd n earest neighbor to the 15th after
+virtual adversarial training.
+5.2 T EST PERFORMANCE ON ELEC, RCV1 AND ROTTEN TOMATOES DATASET
+Table 4 shows the test performance on the Elec and RCV1 datase ts. We can see our proposed method
+improved test performance on the baseline method and achiev ed state of the art performance on both
+datasets, even though the state of the art method uses a combi nation of CNN and bidirectional LSTM
+models. Our unidirectional LSTM model improves on the state of the art method and our method
+with a bidirectional LSTM further improves results on RCV1. The reason why the bidirectional
+models have better performance on the RCV1 dataset would be t hat, on the RCV1 dataset, there are
+some very long sentences compared with the other datasets, a nd the bidirectional model could better
+handle such long sentences with the shorter dependencies fr om the reverse order sentences.
+Table 5 shows test performance on the Rotten Tomatoes datase t. Adversarial training was able to
+improve over the baseline method, and with both adversarial and virtual adversarial cost, achieved
+almost the same performance as the current state of the art me thod. However the test performance
+of only virtual adversarial training was worse than the base line. We speculate that this is because
+the Rotten Tomatoes dataset has very few labeled sentences a nd the labeled sentences are very short.
+7Published as a conference paper at ICLR 2017
+Table 4: Test performance on the Elec and RCV1 classiﬁcation tasks. * indicates using pretrained
+embeddings of CNN, and†indicates using pretrained embeddings of CNN and bidirecti onal LSTM.
+Method Test error rate
+Elec RCV1
+Baseline 6.24% 7.40%
+Adversarial 5.61% 7.12%
+Virtual Adversarial 5.54% 7.05%
+Adversarial + Virtual Adversarial 5.40% 6.97%
+Virtual Adversarial (on bidirectional LSTM) 5.55% 6.71%
+Adversarial + Virtual Adversarial (on bidirectional LSTM) 5.45% 6.68%
+Transductive SVM (Johnson & Zhang, 2015b) 16.41% 10.77%
+NBLM (Naıve Bayes logisitic regression model) (Johnson & Zh ang, 2015a) 8.11% 13.97%
+One-hot CNN* (Johnson & Zhang, 2015b) 6.27% 7.71%
+One-hot CNN†(Johnson & Zhang, 2016b) 5.87% 7.15%
+One-hot bi-LSTM†(Johnson & Zhang, 2016b) 5.55% 8.52%
+In this case, the virtual adversarial loss on unlabeled exam ples overwhelmed the supervised loss, so
+the model prioritized being robust to perturbation rather t han obtaining the correct answer.
+Table 5: Test performance on the Rotten Tomatoes sentiment c lassiﬁcation task. * indicates using
+pretrained embeddings from word2vec Google News, and†indicates using unlabeled data from
+Amazon reviews.
+Method Test error rate
+Baseline 17.9%
+Adversarial 16.8%
+Virtual Adversarial 19.1%
+Adversarial + Virtual Adversarial 16.6%
+NBSVM-bigrams(Wang & Manning, 2012) 20.6%
+CNN*(Kim, 2014) 18.5%
+AdaSent*(Zhao et al., 2015) 16.9%
+SA-LSTM†(Dai & Le, 2015) 16.7%
+5.3 P ERFORMANCE ON THE DBPEDIA PURELY SUPERVISED CLASSIFICATION TASK
+Table 6 shows the test performance of each method on DBpedia. The ‘Random perturbation’ is
+the same method as the ‘Random perturbation with labeled exa mples’ explained in Section 5.1.
+Note that DBpedia has only labeled examples, as we explained in Section 4, so this task is purely
+supervised learning. We can see that the baseline method has already achieved nearly the current
+state of the art performance, and our proposed method improv es from the baseline method.
+6 R ELATED WORKS
+Dropout (Srivastava et al., 2014) is a regularization metho d widely used for many domains includ-
+ing text. There are some previous works adding random noise t o the input and hidden layer during
+training, to prevent overﬁtting (e.g. (Sietsma & Dow, 1991; Poole et al., 2013)). However, in our
+experiments and in previous works (Miyato et al., 2016), tra ining with adversarial and virtual adver-
+sarial perturbations outperformed the method with random p erturbations.
+For semi-supervised learning with neural networks, a commo n approach, especially in the image
+domain, is to train a generative model whose latent features may be used as features for classiﬁ-
+cation (e.g. (Hinton et al., 2006; Maaløe et al., 2016)). The se models now achieve state of the art
+8Published as a conference paper at ICLR 2017
+Table 6: Test performance on the DBpedia topic classiﬁcatio n task
+Method Test error rate
+Baseline (without embedding normalization) 0.87%
+Baseline 0.90%
+Random perturbation 0.85%
+Adversarial 0.79%
+Virtual Adversarial 0.76%
+Bag-of-words(Zhang et al., 2015) 3.57%
+Large-CNN(character-level) (Zhang et al., 2015) 1.73%
+SA-LSTM(word-level)(Dai & Le, 2015) 1.41%
+N-grams TFIDF (Zhang et al., 2015) 1.31%
+SA-LSTM(character-level)(Dai & Le, 2015) 1.19%
+Word CNN (Johnson & Zhang, 2016a) 0.84%
+performance on the image domain. However, these methods req uire numerous additional hyperpa-
+rameters with generative models, and the conditions under w hich the generative model will provide
+good supervised learning performance are poorly understoo d. By comparison, adversarial and vir-
+tual adversarial training requires only one hyperparamete r, and has a straightforward interpretation
+as robust optimization.
+Adversarial and virtual adversarial training resemble som e semi-supervised or transductive SVM ap-
+proaches (Joachims, 1999; Chapelle & Zien, 2005; Collobert et al., 2006; Belkin et al., 2006) in that
+both families of methods push the decision boundary far from training examples (or in the case of
+transductive SVMs, test examples). However, adversarial t raining methods insist on margins on the
+input space , while SVMs insist on margins on the feature spac e deﬁned by the kernel function. This
+property allows adversarial training methods to achieve th e models with a more ﬂexible function on
+the space where the margins are imposed. In our experiments ( Table 2, 4) and Miyato et al. (2016),
+adversarial and virtual adversarial training achieve bett er performance than SVM based methods.
+There has also been semi-supervised approaches applied to t ext classiﬁcation with both CNNs and
+RNNs. These approaches utilize ‘view-embeddings’(Johnso n & Zhang, 2015b; 2016b) which use
+the window around a word to generate its embedding. When thes e are used as a pretrained model for
+the classiﬁcation model, they are found to improve generali zation performance. These methods and
+our method are complementary as we showed that our method imp roved from a recurrent pretrained
+language model.
+7 C ONCLUSION
+In our experiments, we found that adversarial and virtual ad versarial training have good regular-
+ization performance in sequence models on text classiﬁcati on tasks. On all datasets, our proposed
+method exceeded or was on par with the state of the art perform ance. We also found that adversarial
+and virtual adversarial training improved not only classiﬁ cation performance but also the quality of
+word embeddings. These results suggest that our proposed me thod is promising for other text do-
+main tasks, such as machine translation(Sutskever et al., 2 014), learning distributed representations
+of words or paragraphs(Mikolov et al., 2013; Le & Mikolov, 20 14) and question answering tasks.
+Our approach could also be used for other general sequential tasks, such as for video or speech.
+ACKNOWLEDGMENTS
+We thank the developers of Tensorﬂow. We thank the members of Google Brain team for their warm
+support and valuable comments. This work is partly supporte d by NEDO.
+REFERENCES
+Martın Abadi, Ashish Agarwal, Paul Barham, Eugene Brevdo, Z hifeng Chen, Craig Citro, Greg S Corrado,
+Andy Davis, Jeffrey Dean, Matthieu Devin, et al. Tensorﬂow: Large-scale machine learning on heteroge-
+9Published as a conference paper at ICLR 2017
+neous distributed systems. arXiv preprint arXiv:1603.04467 , 2016.
+Mikhail Belkin, Partha Niyogi, and Vikas Sindhwani. Manifo ld regularization: A geometric framework for
+learning from labeled and unlabeled examples. The Journal of Machine Learning Research , 7(Nov):2399–
+2434, 2006.
+Yoshua Bengio, Holger Schwenk, Jean-Sébastien Senécal, Fr éderic Morin, and Jean-Luc Gauvain. Neural
+probabilistic language models. In Innovations in Machine Learning , pp. 137–186. Springer, 2006.
+Olivier Chapelle and Alexander Zien. Semi-supervised clas siﬁcation by low density separation. In AISTATS ,
+2005.
+Ronan Collobert, Fabian Sinz, Jason Weston, and Léon Bottou . Large scale transductive svms. Journal of
+Machine Learning Research , 7(Aug):1687–1712, 2006.
+Andrew M Dai and Quoc V Le. Semi-supervised sequence learnin g. In NIPS , 2015.
+Xavier Glorot, Antoine Bordes, and Yoshua Bengio. Deep spar se rectiﬁer neural networks. In AISTATS , 2011.
+Ian J Goodfellow, Jonathon Shlens, and Christian Szegedy. E xplaining and harnessing adversarial examples.
+InICLR , 2015.
+Alex Graves and Jürgen Schmidhuber. Framewise phoneme clas siﬁcation with bidirectional lstm and other
+neural network architectures. Neural Networks , 18(5):602–610, 2005.
+Geoffrey E. Hinton, Simon Osindero, and Yee Whye Teh. A fast l earning algorithm for deep belief nets. Neural
+Computation , 18:1527–1554, 2006.
+Kevin Jarrett, Koray Kavukcuoglu, Marc’Aurelio Ranzato, a nd Yann LeCun. What is the best multi-stage
+architecture for object recognition? In ICCV , 2009.
+Thorsten Joachims. Transductive inference for text classi ﬁcation using support vector machines. In ICML ,
+1999.
+Rie Johnson and Tong Zhang. Effective use of word order for te xt categorization with convolutional neural
+networks. NAACL HLT , 2015a.
+Rie Johnson and Tong Zhang. Semi-supervised convolutional neural networks for text categorization via region
+embedding. In NIPS , 2015b.
+Rie Johnson and Tong Zhang. Convolutional neural networks f or text categorization: Shallow word-level vs.
+deep character-level. arXiv preprint arXiv:1609.00718 , 2016a.
+Rie Johnson and Tong Zhang. Supervised and semi-supervised text categorization using LSTM for region
+embeddings. In ICML , 2016b.
+Yoon Kim. Convolutional neural networks for sentence class iﬁcation. In EMNLP , 2014.
+Diederik Kingma and Jimmy Ba. Adam: A method for stochastic o ptimization. In ICLR , 2015.
+Quoc V Le and Tomas Mikolov. Distributed representations of sentences and documents. In ICML , 2014.
+Jens Lehmann, Robert Isele, Max Jakob, Anja Jentzsch, Dimit ris Kontokostas, Pablo N Mendes, Sebastian
+Hellmann, Mohamed Morsey, Patrick van Kleef, Sören Auer, et al. Dbpedia–a large-scale, multilingual
+knowledge base extracted from wikipedia. Semantic Web , 6(2):167–195, 2015.
+David D Lewis, Yiming Yang, Tony G Rose, and Fan Li. Rcv1: A new benchmark collection for text catego-
+rization research. The Journal of Machine Learning Research , 5:361–397, 2004.
+Lars Maaløe, Casper Kaae Sønderby, Søren Kaae Sønderby, and Ole Winther. Auxiliary deep generative models.
+InICML , 2016.
+Andrew L Maas, Raymond E Daly, Peter T Pham, Dan Huang, Andrew Y Ng, and Christopher Potts. Learning
+word vectors for sentiment analysis. In ACL: Human Language Technologies-Volume 1 , 2011.
+Julian McAuley and Jure Leskovec. Hidden factors and hidden topics: understanding rating dimensions with
+review text. In ACM conference on Recommender systems , 2013.
+Tomas Mikolov, Martin Karaﬁát, Lukas Burget, Jan Cernock `y, and Sanjeev Khudanpur. Recurrent neural
+network based language model. In INTERSPEECH , 2010.
+10Published as a conference paper at ICLR 2017
+Tomas Mikolov, Ilya Sutskever, Kai Chen, Greg S Corrado, and Jeff Dean. Distributed representations of words
+and phrases and their compositionality. In NIPS , 2013.
+Takeru Miyato, Shin-ichi Maeda, Masanori Koyama, Ken Nakae , and Shin Ishii. Distributional smoothing with
+virtual adversarial training. In ICLR , 2016.
+Vinod Nair and Geoffrey E Hinton. Rectiﬁed linear units impr ove restricted boltzmann machines. In ICML ,
+2010.
+Bo Pang and Lillian Lee. Seeing stars: Exploiting class rela tionships for sentiment categorization with respect
+to rating scales. In ACL, 2005.
+Ben Poole, Jascha Sohl-Dickstein, and Surya Ganguli. Analy zing noise in autoencoders and deep networks. In
+Deep Leanring Workshop on NIPS , 2013.
+J. Sietsma and R. Dow. Creating artiﬁcial neural networks th at generalize. Neural Networks , 4(1), 1991.
+Nitish Srivastava, Geoffrey Hinton, Alex Krizhevsky, Ilya Sutskever, and Ruslan Salakhutdinov. Dropout: A
+simple way to prevent neural networks from overﬁtting. The Journal of Machine Learning Research , 15(1),
+2014.
+Ilya Sutskever, Oriol Vinyals, and Quoc V Le. Sequence to seq uence learning with neural networks. In NIPS ,
+2014.
+Christian Szegedy, Wojciech Zaremba, Ilya Sutskever, Joan Bruna, Dumitru Erhan, Ian Goodfellow, and Rob
+Fergus. Intriguing properties of neural networks. In ICLR , 2014.
+Sida Wang and Christopher D Manning. Baselines and bigrams: Simple, good sentiment and topic classiﬁcation.
+InACL: Short Papers , 2012.
+David Warde-Farley and Ian Goodfellow. Adversarial pertur bations of deep neural networks. In Tamir Hazan,
+George Papandreou, and Daniel Tarlow (eds.), Perturbations, Optimization, and Statistics , chapter 11. 2016.
+Book in preparation for MIT Press.
+Xiang Zhang, Junbo Zhao, and Yann LeCun. Character-level co nvolutional networks for text classiﬁcation. In
+NIPS , 2015.
+Han Zhao, Zhengdong Lu, and Pascal Poupart. Self-adaptive h ierarchical sentence model. In IJCAI , 2015.
+11

@@ -1,0 +1,947 @@
+Learning Policy Representations in Multiagent Systems
+Aditya Grover1Maruan Al-Shedivat2Jayesh K. Gupta1Yura Burda3Harrison Edwards3
+Abstract
+Modeling agent behavior is central to understand-
+ing the emergence of complex phenomena in mul-
+tiagent systems. Prior work in agent modeling
+has largely been task-speciﬁc and driven by hand-
+engineering domain-speciﬁc prior knowledge. We
+propose a general learning framework for model-
+ing agent behavior in any multiagent system using
+only a handful of interaction data. Our framework
+casts agent modeling as a representation learning
+problem. Consequently, we construct a novel ob-
+jective inspired by imitation learning and agent
+identiﬁcation and design an algorithm for unsu-
+pervised learning of representations of agent poli-
+cies. We demonstrate empirically the utility of
+the proposed framework in (i) a challenging high-
+dimensional competitive environment for continu-
+ous control and (ii) a cooperative environment for
+communication, on supervised predictive tasks,
+unsupervised clustering, and policy optimization
+using deep reinforcement learning.
+1. Introduction
+Intelligent agents rarely act in isolation in the real world and
+often seek to achieve their goals through interaction with
+other agents. Such interactions give rise to rich, complex
+behaviors formalized as per-agent policies in a multiagent
+system (Ferber, 1999; Wooldridge, 2009). Depending on the
+underlying motivations of the agents, interactions could be
+directed towards achieving a shared goal in a collaborative
+setting, opposing another agent in a competitive setting, or
+be a mixture of these in a setting where agents collaborate
+in teams to compete against other teams. Learning useful
+representations of the policies of agents based on their inter-
+actions is an important step towards characterization of the
+agent behavior and more generally inference and reasoning
+in multiagent systems.
+1Stanford University2Carnegie Mellon University3OpenAI.
+Correspondence to: Aditya Grover <adityag@cs.stanford.edu >.
+Proceedings of the 35thInternational Conference on Machine
+Learning , Stockholm, Sweden, PMLR 80, 2018. Copyright 2018
+by the author(s).In this work, we propose an unsupervised encoder-decoder
+framework for learning continuous representations of agent
+policies given access to only a few episodes of interaction.
+For any given agent, the representation function is an en-
+coder that learns a mapping from an interaction ( i.e., one or
+more episodes of observation and action pairs involving the
+agent) to a continuous embedding vector. Using such em-
+beddings, we condition a policy network (decoder) and train
+it simultaneously with the encoder to imitate other interac-
+tions involving the same (or a coupled) agent. Additionally,
+we can explicitly discriminate between the embeddings cor-
+responding to different agents using triplet losses.
+For the embeddings to be useful, the representation function
+should generalize to both unseen interactions and unseen
+agents for novel downstream tasks. Generalization is well-
+understood in the context of supervised learning where a
+good model is expected to attain similar train and test per-
+formance. For multiagent systems, we consider a notion of
+generalization based on agent-interaction graphs . An agent-
+interaction graph provides an abstraction for distinguishing
+the agents (nodes) and interactions (edges) observed during
+training, validation, and testing.
+Our framework is agnostic to the nature of interactions in
+multiagent systems, and hence broadly applicable to com-
+petitive and cooperative environments. In particular, we
+consider two multiagent environments: (i) a competitive
+continuous control environment, RoboSumo (Al-Shedivat
+et al., 2018), and (ii) a ParticleWorld environment
+of cooperative communication where agents collaborate to
+achieve a common goal (Mordatch & Abbeel, 2018). For
+evaluation, we show how representations learned by our
+framework are effective for downstream tasks that include
+clustering of agent policies (unsupervised), classiﬁcation
+such as win or loss outcomes in competitive systems (super-
+vised), and policy optimization (reinforcement). In the case
+of policy optimization, we show how these representations
+can serve as privileged information for better training of
+agent policies. In RoboSumo , we train agent policies that
+can condition on the opponent’s representation and achieve
+superior win rates much more quickly as compared to an
+equally expressive baseline policy with the same number of
+parameters. In ParticleWorld , we train speakers that
+can communicate more effectively with a much wider range
+of listeners given knowledge of their representations.arXiv:1806.06464v2  [cs.MA]  31 Jul 2018Learning Policy Representations in Multiagent Systems
+2. Preliminaries
+In this section, we present the necessary background and
+notation relevant to the problem setting of this work.
+Markov games. We use the classical framework of Markov
+games (Littman, 1994) to represent multiagent systems.
+AMarkov game extends the general formulation of par-
+tially observable Markov decision processes (POMDP) to
+the multiagent setting. In a Markov game, we are given
+a set ofnagents on a state-space Swith action spaces
+A1;A2;;Anand observation spaces O1;O2;;On
+respectively. At every time step t, an agentireceives an
+observation o(t)
+i2Oiand executes an action a(t)
+i2Ai
+based on a stochastic policy (i):OiAi![0;1].
+Based on the executed action, the agent receives a reward
+r(t)
+i:SAi!Rand the next observation o(t+1)
+i . The
+state dynamics are determined by a transition function
+T:SA 1An!S . The agent policies are trained
+to maximize their own expected reward ri=PH
+t=1r(t)
+i
+over a time horizon H.
+Extended Markov games. In this work, we are interested
+in interactions that involve not all but only a subset of agents.
+For this purpose, we generalize Markov games as follows.
+First, we augment the action space of each agent with a
+NO-OP (i.e., no action). Then, we introduce a problem pa-
+rameter, 2kn, with the following semantics. During
+every rollout of the Markov game, all but kagents deter-
+ministically execute the NO-OP operator while the kagents
+execute actions as per the policies deﬁned on the original
+observation and action spaces. Accordingly, we assume that
+each agent receives rewards only in the interaction episode
+it participates in. Informally, the extension allows for multi-
+agent systems where all agents do not necessarily have to
+participate simultaneously in an interaction. For instance,
+this allows to consider one-vs-one multiagent tournaments
+where only two players participate in any given match.
+To further introduce the notation, consider a multiagent sys-
+tem as a generalized Markov game. We denote the set of
+agent policies with P=f(i)gn
+i=1, interaction episodes
+withE=fEMjgm
+j=1whereMjf1;2;;ng;jMjj=
+kis the set ofkagents participating in episode EMj. To sim-
+plify presentation for the rest of the paper, we assume k= 2
+and, consequently, denote the set of interaction episodes
+between agents iandjasEij. A single episode, eij2Eij,
+consists of a sequence of observations and actions for the
+speciﬁed time horizon, H.
+Imitation learning. Our approach to learning policy repre-
+sentations relies on behavioral cloning (Pomerleau, 1991)—
+a type of imitation learning where we train a mapping from
+observations to actions in a supervised manner. Although
+there exist other imitation learning algorithms ( e.g., inverse
+reinforcement learning, Abbeel & Ng, 2004), our frame-work is largely agnostic to the choice of the algorithm, and
+we restrict our presentation to behavioral cloning, leaving
+other imitation learning paradigms to future work.
+3. Learning framework
+The dominant paradigm for unsupervised representation
+learning is to optimize the parameters of a representation
+function that can best explain or generate the observed data.
+For instance, the skip-gram objective used for language and
+graph data learns representations of words and nodes pre-
+dictive of representations of surrounding context (Mikolov
+et al., 2013; Grover & Leskovec, 2016). Similarly, autoen-
+coding objectives, often used for image data, learn represen-
+tations that can reconstruct the input (Bengio et al., 2009).
+In this work, we wish to learn a representation function
+that maps episode(s) from an agent policy, (i)2to a
+real-valued vector embedding where is a class of repre-
+sentable policies. That is, we optimize for the parameters
+for a function f:E!RdwhereEdenotes the space of
+episodes corresponding to a policy and dis the dimension of
+the embedding. Here, we have assumed the agent policies
+are black-boxes, i.e., we can only access them based on
+interaction episodes with other agents in a Markov game.
+Hence, for every agent i, we wish to learn policies using
+Ei=[jE(i)
+ij. Here,E(i)
+ijrefers the episode data for inter-
+actions between agent iandj, but consisting of only the
+observation and action pairs of agent i. For a multiagent sys-
+tem, we propose the following auxiliary tasks for learning a
+good representation of an agent’s policy:
+1.Generative representations. The representation should
+be useful for simulating the agent’s policy.
+2.Discriminative representations. The representation
+should be able to distinguish the agent’s policy with
+the policies of other agents.
+Accordingly, we now propose generative and discriminative
+objectives for representation learning in multiagent systems.
+3.1. Generative representations via imitation learning
+Imitation learning does not require direct access to the re-
+ward signal, making it an attractive task for unsupervised
+representation learning. Formally, we are interested in learn-
+ing a policy(i)
+:SA! [0;1]for an agentigiven access
+to observation and action pairs from interaction episode(s)
+involving the agent. For behavioral cloning, we maximize
+the following (negative) cross-entropy objective:
+EeEi2
+4X
+ho;aieh
+log(i)
+(ajo)i3
+5
+where the expectation is over interaction episodes of agent i
+and the optimization is over the parameters .Learning Policy Representations in Multiagent Systems
+Algorithm 1 Learn Policy Embedding Function ( f)
+inputfEign
+i=1– interaction episodes, – hyperparameter.
+1:Initializeand
+2:fori= 1;2;:::;n do
+3: Sample a positive episode pe e+Ei
+4: Sample a reference episode re eEine+
+5: Compute Imloss  P
+ho;aie+log;(ajo;e)
+6: forj= 1;2;:::;n do
+7: ifj6=ithen
+8: Sample a negative episode ne e Ej
+9: Compute Idloss d(e+;e ;e)
+10: SetLoss Imloss +Idloss
+11: Updateandto minimize Loss
+12: end if
+13: end for
+14:end for
+output
+Learning individual policies for every agent can be compu-
+tationally and statistically prohibitive for large-scale multi-
+agent systems, especially when the number of interaction
+episodes per agent is small. Moreover, it precludes gener-
+alization across the behaviors of such agents. On the other
+hand, learning a single policy for all agents increases sam-
+ple efﬁciency but comes at the cost of reduced modeling
+ﬂexibility in simulating diverse agent behaviors. We offset
+this dichotomy by learning a single conditional policy net-
+work. To do so, we ﬁrst specify a representation function,
+f:E!Rd, with parameters , whereErepresents the
+space of episodes. We use this embedding to condition the
+policy network. Formally, the policy network is denoted by
+;:SAE! [0;1]andare parameters for the
+function mapping the agent observation and embedding to a
+distribution over the agent’s actions.
+The parameters andfor the conditional policy network
+are learned jointly by maximizing the following objective:
+1
+nnX
+i=1Ee1Ei;
+e2Eine12
+4X
+ho;aie1log;(ajo;e 2)3
+5 (1)
+For every agent, the objective function samples two distinct
+episodese1ande2. The observation and action pairs from
+e2are used to learn an embedding f(e2)that conditions
+the policy network trained on observation and action pairs
+frome1. The conditional policy network shares statistical
+strength through a common set of parameters for the policy
+network and the representation function across all agents.
+3.2. Discriminative representations via identiﬁcation
+An intuitive requirement for any representation function
+learned for a multiagent system is that the embeddings
+should reﬂect characteristics of an agent’s behavior that dis-tinguish it from other agents. To do so in an unsupervised
+manner, we propose an objective for agent identiﬁcation
+based on the triplet loss directly in the space of embeddings.
+To learn a representation for agent ibased on interaction
+episodes, we use the representation function fto com-
+pute three sets of embeddings: (i) a positive embedding
+for an episode e+Eiinvolving agent i, (ii) a negative
+embedding for an episode e Ejinvolving a random
+agentj6=i, and (iii) a reference embedding for an episode
+eEiagain involving agent i, but different from e+.
+Given these embeddings, we deﬁne the triplet loss:
+d(e+;e ;e) =
+(1 + expfkre nek2 kre pek2g) 2(2)
+wherepe=f(e+);ne=f(e );re=f(e). Intuitively,
+the loss encourages the positive embedding to be closer
+to the reference embedding than the negative embedding,
+which makes the embeddings of the same agent tend to
+cluster together and be further away from embeddings of
+other agents. We note that various other notions of distance
+can also be used. The one presented above corresponding
+to a squared softmax objective (Hoffer & Ailon, 2015).
+3.3. Hybrid generative-discriminative representations
+Conditional imitation learning encourages fto learn repre-
+sentations that can learn and simulate the entire policy of the
+agents and agent identiﬁcation incentivizes representations
+that can distinguish between agent policies. Both objectives
+are complementary, and we combine Eq. (1)and Eq. (2)to
+get the ﬁnal objective used for representation learning:
+1
+nnX
+i=1Ee+Ei;
+eEine+2
+666666664X
+ho;aie+log;(ajo;e)
+|{z}
+imitation 
+X
+j6=iEe Ej[d(e+;e ;e)]
+|{z}
+agent identiﬁcation3
+777777775(3)
+where > 0is a tunable hyperparameter that controls
+the relative weights of the discriminative and generative
+terms. The pseudocode for the proposed algorithm is given
+in Algorithm 1. In experiments, we parameterize the condi-
+tional policy ;using neural networks and use stochastic
+gradient-based methods for optimization.
+4. Generalization in MAS
+Generalization is well-understood for supervised learning—
+models that shows similar train and test performance exhibit
+good generalization. To measure the quality of the learned
+representations for a multiagent system (MAS), we intro-
+duce a graphical formalism for reasoning about agents and
+their interactions.Learning Policy Representations in Multiagent Systems
+FE
+A
+GBC
+D
+(a) Agent-Interaction Graph
+ (b) The RoboSumo environment.
+0
+0
+1
+0
+1Speaker 1ListenerNEWStarget landmark
+1
+1
+0
+1
+0
+0Speaker 2 (c) The ParticleWorld environment.
+Figure 1: An example of a graph used for evaluating generalization in a multiagent system (a). Illustrations for the
+environments used in our experiments: competitive (b) and cooperative (c).
+4.1. Generalization across agents & interactions
+In many scenarios, we are interested in generalization of
+the policy representation function facross novel agents
+and interactions in a multiagent system. For instance, we
+would likefto output useful embeddings for a downstream
+task, even when evaluated with respect to unseen agents and
+interactions. This notion of generalization is best understood
+using agent-interaction graphs (Grover et al., 2018).
+Theagent-interaction graph describes interactions between
+a set of agent policies Pand a set of interaction episodes I
+through a graph G= (P;I).1An example graph is shown
+in Figure 1a. The graph represents a multiagent system con-
+sisting of interactions between pairs of agents, and we will
+especially focus on the interactions involving Alice, Bob,
+Charlie, and Davis. The interactions could be competitive
+(e.g., a match between two agents) or cooperative ( e.g., two
+agents communicating for a navigation task).
+We learn the representation function fon a subset of the
+interactions, denoted by the solid black edges in Figure 1a.
+At test time, fis evaluated on some downstream task of
+interest. The agents and interactions observed at test time
+can be different from those used for training. In particular,
+we consider the following cases:
+Weak generalization.2Here, we are interested in the gen-
+eralization performance of the representation function on
+an unseen interaction between existing agents, all of which
+are observed during training. This corresponds to the red
+edge representing the interaction between Alice and Bob in
+Figure 1a. From the context of an agent-interaction graph,
+the test graph adds only edges to the train graph.
+Strong generalization. Generalization can also be evalu-
+ated with respect to unseen agents (and their interactions).
+This corresponds to the addition of agents Charlie and Davis
+in Figure 1a. Akin to a few shot learning setting, we observe
+a few of their interactions with existing agents Alice and
+1If we have more than two participating agents per interaction
+episode, we could represent the interactions using a hypergraph.
+2Also referred to as intermediate generalization by Grover et al.
+(2018).Bob (green edges) and generalization is evaluated on unseen
+interactions involving Charlie and Davis (blue edges). The
+test graph adds both nodes and edges to the train graph.
+For brevity, we skip discussion of weaker forms of general-
+ization that involves evaluation of the test performance on
+unseen episodes of an existing training edge (black edge).
+4.2. Generalization across tasks
+Since the representation function is learned using an un-
+supervised auxiliary objective, we test its generalization
+performance by evaluating the usefulness of these embed-
+dings for various kinds downstream tasks described below.
+Unsupervised. These embeddings can be used for cluster-
+ing, visualization, and interpretability of agent policies in
+a low-dimensional space. Such semantic associations be-
+tween the learned embeddings can be deﬁned for a single
+agent wherein we expect representations for the same agent
+based on distinct episodes to be embedded close to each
+other, or across agents wherein agents with similar policies
+will have similar embeddings on average.
+Supervised. Deep neural network representations are es-
+pecially effective for predictive modeling. In a multiagent
+setting, the embeddings serve as useful features for learning
+agent properties and interactions, including assignment of
+role categories to agents with different skills in a collab-
+orative setting, or prediction of win or loss outcomes of
+interaction matches between agents in a competitive setting.
+Reinforcement. Finally, we can use the learned represen-
+tation functions to improve generalization of the policies
+learned from a reinforcement signal in competitive and coop-
+erative settings. We design policy networks that, in addition
+to observations, take embedding vectors of the opposing
+agents as inputs. The embeddings are computed from the
+past interactions of the opposing agent either with the agent
+being trained or with other agents using the representation
+function (Figure 2). Such embeddings play the role of privi-
+leged information and allow us to train a policy network that
+uses this information to learn faster and generalize better to
+opponents or cooperators unseen at training time.Learning Policy Representations in Multiagent Systems
+previous
+interactionst
+ 
+fetA
+et 1et 1et 1et 1t 1
+ 
+Figure 2: Illustration of the proposed model for optimizing a
+policy that conditions on an embedding of the opponent
+policyA. At timet, the pre-trained representation func-
+tionfcomputes the opponent embedding based on a past
+interactionet 1. We optimize  to maximize the expected
+rewards in its current interactions etwith the opponent.
+5. Evaluation methodology & results
+We evaluate the proposed framework for both compet-
+itive and collaborative environments on various down-
+stream machine learning tasks. In particular, we use the
+RoboSumo andParticleWorld environments for the
+competitive and collaborative scenarios, respectively. We
+consider the embedding objectives in Eq. (1), Eq. (2),
+and Eq. (3)independently and refer to them as Emb-Im ,
+Emb-Id , and Emb-Hyb respectively. The hyperparam-
+eterforEmb-Hyb is chosen by grid search over 2
+f0:01;0:05;0:1;0:5gon a held-out set of interactions.
+In all our experiments, the representation function fis spec-
+iﬁed through a multi-layer perceptron (MLP) that takes as
+input an episode and outputs an embedding of that episode.
+In particular, the MLP takes as input a single (observa-
+tion, action) pair to output an intermediate embedding. We
+average the intermediate embeddings for all (observation,
+action) pairs in an episode to output an episode embedding.
+To condition a policy network on the embedding, we sim-
+ply concatenate the observation fed as input to the network
+with the embedding. Experimental setup and other details
+beyond what we state below are deferred to the Appendix.
+5.1. The RoboSumo environment
+For the competitive environment, we use RoboSumo (Al-
+Shedivat et al., 2018)—a 3D environment with simulated
+physics (based on MuJoCo (Todorov et al., 2012)) that al-
+lows agents to control multi-legged 3D robots and compete
+against each other in continuous-time wrestling games (Fig-
+ure 1b). For our analysis, we train a diverse collection of
+25agents, some of which are trained via self-play and oth-
+ers are trained in pairs concurrently using Proximal Policy
+Optimization (PPO) algorithm (Schulman et al., 2017).
+We start with a fully connected agent-interaction graph
+(clique) of 25agents. Every edge in this graph corresponds
+to10rollout episodes involving the corresponding agents.Table 1: Intra-inter clustering ratios (IICR) and accuracies
+for outcome prediction (Acc) for weak (W) and strong (S)
+generalization on RoboSumo .
+IICR (W) IICR (S) Acc (W) Acc(S)
+Emb-Im 0:24 0:23 0:71 0:60
+Emb-Id 0:25 0:27 0:67 0:56
+Emb-Hyb 0:22 0:21 0:73 0:56
+The maximum length (or horizon) of any episode is 500
+time steps, after which the episode is declared a draw. To
+evaluate weak generalization, we sample a connected sub-
+graph for training with approximately 60% of the edges
+preserved for training, and remaining split equally for vali-
+dation and testing. For strong generalization, we preserve
+15agents and their interactions with each other for training,
+and similarly, 5agents and their within-group interactions
+each for validation and testing.
+5.1.1. E MBEDDING ANALYSIS
+To evaluate the robustness of the embeddings, we compute
+multiple embeddings for each policy based on different
+episodes of interaction at test time. Our evaluation metric
+is based on the intra- and inter-cluster Euclidean distances
+between embeddings. The intra-cluster distance for an agent
+is the average pairwise distance between its embeddings
+computed on the set of test interaction episodes involving
+the agent. Similarly, the inter-cluster distance is the average
+pairwise distance between the embeddings of an agent with
+those of other agents. Let Ti=ft(i)
+cgni
+c=1denote the set of
+test interactions involving agent i. We deﬁne the intra-inter
+cluster ratio (IICR) as:
+IICR =1
+nPn
+i=11
+n2
+iPni
+a=1Pni
+b=1kt(i)
+a t(i)
+bk2
+1
+n(n 1)nP
+i=1nP
+j6=i1
+ninjniP
+a=1njP
+b=1kt(i)
+a t(j)
+bk2:
+The intra-inter clustering ratios are reported in Table 1. A
+ratio less than 1suggests that there is signal that identi-
+ﬁes the agent, and the signal is stronger for lower ratios.
+Even though this task might seem especially suited for the
+agent identiﬁcation objective, we interestingly ﬁnd that the
+Emb-Im attains lower clustering ratios than Emb-Id for
+both weak and strong generalization. Emb-Hyb outper-
+forms both these methods. We qualitatively visualize the
+embeddings learned using Emb-Hyb by projecting them on
+the leading principal components, as shown in Figures 3a
+and 3b for 10test interaction episodes of 5randomly se-
+lected agents in the weak and strong generalization settings
+respectively.
+5.1.2. O UTCOME PREDICTION
+We can use these embeddings directly for training a classi-
+ﬁer to predict the outcome of an episode (win/loss/draw).
+For classiﬁcation, we use an MLP with 3hidden layersLearning Policy Representations in Multiagent Systems
+first eigenvectorsecond eigenvectorthird eigenvector
+(a)RoboSumo : Weak
+first eigenvectorsecond eigenvectorthird eigenvector (b)RoboSumo : Strong
+first eigenvectorsecond eigenvectorthird eigenvector (c)ParticleWorld : Weak
+first eigenvectorsecond eigenvectorthird eigenvector (d)ParticleWorld : Strong
+Figure 3: Embeddings learned using Emb-Hyb for10test interaction episodes of 5agents projected on the ﬁrst three
+principal components for RoboSumo andParticleWorld . Color denotes agent policy.
+0 1000 2000
+Iteration0.250.500.751.00Win rateTrain
+PPO
+PPO + Emb-Im
+PPO + Emb-Id
+PPO + Emb-Hyb
+0 1000 20000.20.40.60.8Test
+0 1000 2000
+Iteration0.250.500.751.00Win rateTrain
+PPO
+PPO + Emb-online
+PPO + Emb-ofﬂine
+PPO + Emb-zero
+PPO + Emb-rand
+0 1000 20000.250.500.751.00Test
+Figure 4: Average win rates of the newly trained agents against 5training agent and 5testing agents. The left two charts
+compare baseline with policies that make use of Emb-Im ,Emb-Id , andEmb-Hyb (all computed online). The right two
+charts compare different embeddings used at evaluation time (all embedding-conditioned policies use Emb-Hyb ). At each
+iteration, win rates were computed based on 50 1-on-1 games. Each agent was trained 3 times, each time from a different
+random initialization. Shaded regions correspond to 95% CI.
+of100units each and the learning objective minimizes the
+cross entropy error. The input to the classiﬁer are the embed-
+dings of the two agents involved in the episode. The results
+are reported in Table 1. Again, imitation based methods
+seem more suited for this task with Emb-Hyb andEmb-Im
+outperforming other methods for weak and strong general-
+ization respectively.
+5.1.3. P OLICY OPTIMIZATION
+Here we ask whether embeddings can be used to improve
+learned policies in a reinforcement learning setting both in
+terms of end performance and generalization. To this end,
+we select 5 training, 5 validation, and 5 testing opponents
+from the pool of 25 pre-trained agents. Next, we train a new
+agent with reinforcement learning to compete against the
+selected 5 training opponents; the agent is trained concur-
+rently against all 5 opponents using a distributed version of
+PPO algorithm, as described in Al-Shedivat et al. (2018).
+Throughout training, we evaluate new agents on the 5 testing
+opponents and record the average win and draw rates.
+Using this setup, we compare a baseline agent with
+MLP-based policy with an agent whose policy takes 100-
+dimensional embeddings of the opponents as additional in-
+puts at each time step and uses that information to condition
+its behavior on the opponent’s representation. The embed-dings for each opponent are either computed online ,i.e.,
+based on an interaction episode rolled out during training at
+a previous time step (Figure 2), or ofﬂine ,i.e., pre-computed
+before training the new agent using only interactions be-
+tween the pre-trained opponents.
+Figure 4 shows the average win rates against the set of train-
+ing and testing opponents for the baseline and our agents
+that use different types of embeddings. While every new
+agent is able to achieve almost 100% win rate against the
+training opponents, we see that the agents that condition
+their policies on the opponent’s embeddings perform better
+on the held-out set of opponents, i.e., generalize better, with
+the best performance achieved with Emb-Hyb . We also
+note that embeddings computed ofﬂine turn out to lead to
+better performance than if computed online3. As an ablation
+test, we also evaluate our agents when they are provided
+an incorrect embedding (either all zeros, Emb-zero , or
+an embedding selected for a different random opponent,
+Emb-rand ) and observe that such embeddings lead to a
+degradation in performance4.
+3Perhaps, this is due to differences in the interactions of the
+opponents between themselves and with the new agent that the
+embedding network was not able to capture entirely.
+4Performance decrease is most signiﬁcant for Emb-zero ,
+which is an out-of-distribution all-zeros vector.Learning Policy Representations in Multiagent Systems
+0 1000
+Iteration0.00.51.0RateEmb-Hyb vs. PPO
+Win Loss Draw0 1000Emb-Hyb vs. Emb-Im
+0 1000Emb-Hyb vs. Emb-Id
+0 1000Emb-Im vs. PPO
+0 1000Emb-Im vs. Emb-Id
+0 1000Emb-Id vs. PPO
+Figure 5: Win, loss, and draw rates plotted for the ﬁrst agent in each pair. Each pair of agents was evaluated after each
+training iteration on 50 1-on-1 games; curves are based on 5 evaluation runs. Shaded regions correspond to 95% CI.
+1 2 3 4PPO + Emb-Hyb - 4PPO + Emb-Id - 3PPO + Emb-Im - 2PPO - 1
+0.67 0.61 0.57 0.480.62 0.44 0.50 0.420.55 0.49 0.55 0.360.51 0.44 0.36 0.32
+Figure 6: Win rates for agents speciﬁed in each row at
+computed at iteration 1000.
+Finally, to evaluate strong generalization in the RL set-
+ting, we pit the newly trained baseline and agents with
+embedding-conditional policies against each other. Since
+the embedding network has never seen the new agents, it
+must exhibit strong generalization to be useful in such set-
+ting. The results are give in Figures 5 and 6. Even though
+the margin is not very large, the agents that use Emb-Hyb
+perform the best on average.
+5.2. The ParticleWorld environment
+For the collaborative setting, we evaluate the framework on
+theParticleWorld environment for cooperative com-
+munication (Mordatch & Abbeel, 2018; Lowe et al., 2017).
+The environment consists of a continuous 2D grid with 3
+landmarks and two kinds of agents collaborating to navigate
+to a common landmark goal (Figure 1c). At the beginning
+of every episode, the speaker agent is shown the RGB color
+of a single target landmark on the grid. The speaker then
+communicates a ﬁxed length binary message to the listener
+agent. Based on the received messages, the listener agent
+the moves in a particular direction. The ﬁnal reward, shared
+across the speaker and listener agents, is the distance of the
+listener to the target landmark after a ﬁxed time horizon.
+The agent-interaction graph for this environment is bipar-
+tite with only cross edges between speaker and listener
+agents. Every interaction edge in this graph corresponds
+to1000 rollout episodes where the maximum length of any
+episode is 25steps. We pretrain 28MLP parameterized
+speaker and listener agent policies. Every speaker learns
+through communication with only two different listenersTable 2: Intra-inter clustering ratios (IICR) for weak (W)
+and strong (S) generalization on ParticleWorld . Lower
+is better.
+IICR (W) IICR (S)
+Emb-Im 0:58 0:86
+Emb-Id 0:50 0:82
+Emb-Hyb 0:54 0:85
+Table 3: Average train and test rewards for speaker policies
+onParticleWorld .
+Train Test
+MADDPG  11:66 18:99
+MADDPG + Emb-Im 11:68 17:75
+MADDPG + Emb-Id 11:68 17:68
+MADDPG + Emb-Hyb 11:77 17:20
+and vice-versa, giving an extremely sparse agent-interaction
+graph. We explicitly encoded diversity in these speakers
+and listener agents by masking bits in the communication
+channel. In particular, we masked 1or2randomly selected
+bits for every speaker agent in the graph to give a total of 7
+1
++ 7
+2
+= 28 distinct speaker agents. Depending on the
+neighboring speaker agents in the agent-interaction graph,
+the listener agents also show diversity in the learned policies.
+The policies are learned using multiagent deep deterministic
+policy gradients (MADDPG, Lowe et al., 2017).
+In this environment, the speakers and listeners are tightly
+coupled. Hence we vary the setup used previously in the
+competitive scenario. We wish to learn embeddings of lis-
+teners based on their interactions with speakers. Since the
+agent-interaction graph is bipartite, we use the embeddings
+of listener agents to condition a shared policy network for
+the respective speaker agents.
+5.2.1. E MBEDDING ANALYSIS
+For the weak generalization setting, we remove an outgoing
+edge from every listener agent in the original graph to obtain
+the training graph. In the case of strong generalization, we
+set aside 7listener agents (and their outgoing edges) each
+for validation and testing while the representation function
+is learned on the remaining 14 listener agents and their
+interactions. The intra-inter clustering ratios are shownLearning Policy Representations in Multiagent Systems
+in Table 2, and the projections of the embeddings learned
+using Emb-Hyb are visualized in Figure 3c and Figure 3d
+for weak and strong generalization respectively. In spite of
+the high degree of sparsity in the training graph, the intra-
+inter clustering ratio for the test interaction embeddings is
+less than unity suggesting an agent-speciﬁc signal. Emb-id
+works particularly well in this environment, achieving best
+results for both weak and strong generalization.
+5.2.2. P OLICY OPTIMIZATION
+Here, we are interested in learning speaker agents that can
+communicate more effectively with a much wider range of
+listeners given knowledge of their embeddings. Referring
+back to Figure 2, we learn a policy  for a speaker agent
+that conditions on the representation function ffor the
+listener agents. For cooperative communication, we con-
+sider interactions with 14 pre-trained listener agents split
+as6training, 4validation, and 4test agents.5Similar to
+the competitive setting, we compare performance against
+a baseline speaker agent that does not have access to any
+privilege information about the listeners. We summarize
+the results for the best validated models during training and
+100interaction episodes per test listener agent across 5ini-
+tializations in Table 3. From the results, we observe that
+online embedding based methods can generalize better than
+the baseline methods. The baseline MADDPG achieves the
+lowest training error, but fails to generalize well enough and
+incurs a low average reward for the test listener agents.
+6. Discussion & Related Work
+Agent modeling is a well-studied topic within multiagent
+systems. See Albrecht & Stone (2017) for an excellent
+recent survey on this subject. The vast majority of literature
+concerns with learning models for a speciﬁc predictive task.
+Predictive tasks are typically deﬁned over actions, goals,
+and beliefs of other agents (Stone & Veloso, 2000). In
+competitive domains such as Poker and Go, such tasks are
+often integrated with domain-speciﬁc heuristics to model
+opponents and learn superior policies (Rubin & Watson,
+2011; Mnih et al., 2015). Similarly, intelligent tutoring
+systems take into account pedagogical features of students
+and teachers to accelerate learning of desired behaviors in a
+collaborative environment (McCalla et al., 2000).
+In this work, we proposed an approach for modeling agent
+behavior in multiagent systems through unsupervised rep-
+resentational learning of agent policies. Since we sidestep
+any domain speciﬁc assumptions and learn in an unsuper-
+vised manner, our framework learns representations that are
+5None of the methods considered were able to learn a non-
+trivial speaker agent when trained simultaneously with all 28lis-
+tener agents. Hence, we simpliﬁed the problem by considering the
+14listener agents that attained the best rewards during pretraining.useful for several downstream tasks. This extends the use of
+deep neural networks in multiagent systems to applications
+beyond traditional reinforcement learning and predictive
+modeling (Mnih et al., 2015; Hoshen, 2017).
+Both the generative and discriminative components of our
+framework have been explored independently in prior work.
+Imitation learning has been extensively studied in the single-
+agent setting and recent work by Le et al. (2017) proposes an
+algorithm for imitation in a coordinated multiagent system.
+Wang et al. (2017) proposed an imitation learning algorithm
+for learning robust controllers with few expert demonstra-
+tions in a single-agent setting that conditions the policy
+network on an inference network, similar to the encoder
+in our framework. In another recent work, Li et al. (2017)
+propose an algorithm for learning interpretable representa-
+tions using generative adversarial imitation learning. Agent
+identiﬁcation which represents the discriminative term in
+the learning objective is inspired from triplet losses and
+Siamese networks that are used for learning representations
+of data using distance comparisons (Hoffer & Ailon, 2015).
+A key contribution of this work is a principled methodology
+for evaluating generalization of representations in multia-
+gent systems based on the graphs of the agent interactions.
+Graphs are a fundamental abstraction for modeling rela-
+tional data, such as the interactions arising in multiagent
+systems (Zhou et al., 2016a;b; Chen et al., 2017; Battaglia
+et al., 2016; Hoshen, 2017) and concurrent work proposes
+to learn such graphs directly from data (Kipf et al., 2018).
+7. Conclusion & Future Work
+In this work, we presented a framework for learning rep-
+resentations of agent policies in multiagent systems. The
+agent policies are accessed using a few interaction episodes
+with other agents. Our learning objective is based on a novel
+combination of a generative component based on imitation
+learning and a discriminative component for distinguish-
+ing the embeddings of different agent policies. Our overall
+framework is unsupervised, sample-efﬁcient, and domain-
+agnostic, and hence can be readily extended to many en-
+vironments and downstream tasks. Most importantly, we
+showed the role of these embeddings as privileged infor-
+mation for learning more adaptive agent policies in both
+collaborative and competitive settings.
+In the future, we would like to explore multiagent systems
+with more than two agents participating in the interactions.
+Semantic interpolation of policies directly in the embedded
+space in order to obtain a policy with desired behaviors
+quickly is another promising direction. Finally, it would be
+interesting to extend and evaluate the proposed framework to
+learn representations for history dependent policies such as
+those parameterized by long short-term memory networks.Learning Policy Representations in Multiagent Systems
+Acknowledgements
+We are thankful to Lisa Lee, Daniel Levy, Jiaming Song, and
+everyone at OpenAI for helpful comments and discussion.
+AG is supported by a Microsoft Research PhD Fellowship.
+MA is partially supported by NIH R01GM114311. JKG
+is partially supported by the Army Research Laboratory
+through the Army High Performance Computing Research
+Center under Cooperative Agreement W911NF-07-2-0027.
+References
+Abbeel, P. and Ng, A. Y . Apprenticeship learning via inverse
+reinforcement learning. In International Conference on
+Machine Learning , 2004.
+Al-Shedivat, M., Bansal, T., Burda, Y ., Sutskever, I., Mor-
+datch, I., and Abbeel, P. Continuous adaptation via meta-
+learning in nonstationary and competitive environments.
+InInternational Conference on Learning Representations ,
+2018.
+Albrecht, S. V . and Stone, P. Autonomous agents modeling
+other agents: A comprehensive survey and open problems.
+arXiv preprint arXiv: 1709.08071 , 2017.
+Battaglia, P., Pascanu, R., Lai, M., Rezende, D. J., et al.
+Interaction networks for learning about objects, relations
+and physics. In Advances in Neural Information Process-
+ing Systems , 2016.
+Bengio, Y . et al. Learning deep architectures for ai. Foun-
+dations and trends Rin Machine Learning , 2(1):1–127,
+2009.
+Chen, M., Zhou, Z., and Tomlin, C. J. Multiplayer reach-
+avoid games via pairwise outcomes. IEEE Transactions
+on Automatic Control , 62(3):1451–1457, 2017.
+Ferber, J. Multi-agent systems: An introduction to dis-
+tributed artiﬁcial intelligence , volume 1. Addison-Wesley
+Reading, 1999.
+Grover, A. and Leskovec, J. node2vec: Scalable feature
+learning for networks. In SIGKDD Conference on Knowl-
+edge Discovery and Data Mining , 2016.
+Grover, A., Al-Shedivat, M., Gupta, J. K., Burda, Y ., and
+Edwards, H. Evaluating generalization in multiagent
+systems using agent-interaction graphs. In International
+Conference on Autonomous Agents and Multiagent Sys-
+tems, 2018.
+Hoffer, E. and Ailon, N. Deep metric learning using triplet
+network. In International Workshop on Similarity-Based
+Pattern Recognition , pp. 84–92. Springer, 2015.Hoshen, Y . V AIN: Attentional multi-agent predictive mod-
+eling. In Advances in Neural Information Processing
+Systems , 2017.
+Kingma, D. P. and Ba, J. Adam: A method for stochastic
+optimization. In International Conference on Learning
+Representations , 2015.
+Kipf, T., Fetaya, E., Wang, K.-C., Welling, M., and Zemel,
+R. Neural relational inference for interacting systems. In
+International Conference on Machine Learning , 2018.
+Le, H. M., Yue, Y ., and Carr, P. Coordinated multi-agent im-
+itation learning. In International Conference on Machine
+Learning , 2017.
+Li, Y ., Song, J., and Ermon, S. Inferring the latent struc-
+ture of human decision-making from raw visual inputs.
+InAdvances in Neural Information Processing Systems ,
+2017.
+Littman, M. L. Markov games as a framework for multi-
+agent reinforcement learning. In International Confer-
+ence on Machine Learning , 1994.
+Lowe, R., Wu, Y ., Tamar, A., Harb, J., Abbeel, P., and Mor-
+datch, I. Multi-agent actor-critic for mixed cooperative-
+competitive environments. In Advances in Neural Infor-
+mation Processing Systems , 2017.
+McCalla, G., Vassileva, J., Greer, J., and Bull, S. Active
+learner modelling. In Intelligent tutoring systems , pp.
+53–62. Springer, 2000.
+Mikolov, T., Sutskever, I., Chen, K., Corrado, G. S., and
+Dean, J. Distributed representations of words and phrases
+and their compositionality. In Advances in Neural Infor-
+mation Processing Systems , 2013.
+Mnih, V ., Kavukcuoglu, K., Silver, D., Rusu, A. A., Veness,
+J., Bellemare, M. G., Graves, A., Riedmiller, M., Fidje-
+land, A. K., Ostrovski, G., et al. Human-level control
+through deep reinforcement learning. Nature , 518(7540):
+529–533, 2015.
+Mordatch, I. and Abbeel, P. Emergence of grounded com-
+positional language in multi-agent populations. In AAAI
+Conference on Artiﬁcial Intelligence , 2018.
+Pomerleau, D. A. Efﬁcient training of artiﬁcial neural net-
+works for autonomous navigation. Neural Computation ,
+3(1):88–97, 1991.
+Rubin, J. and Watson, I. Computer poker: A review. Artiﬁ-
+cial intelligence , 175(5-6):958–987, 2011.
+Schulman, J., Wolski, F., Dhariwal, P., Radford, A., and
+Klimov, O. Proximal policy optimization algorithms.
+arXiv preprint arXiv:1707.06347 , 2017.Learning Policy Representations in Multiagent Systems
+Stone, P. and Veloso, M. Multiagent systems: A survey from
+a machine learning perspective. Autonomous Robots , 8
+(3):345–383, 2000.
+Todorov, E., Erez, T., and Tassa, Y . MuJoCo: A physics
+engine for model-based control. In International Confer-
+ence on Intelligent Robots and Systems , 2012.
+Wang, Z., Merel, J., Reed, S., Wayne, G., de Freitas, N.,
+and Heess, N. Robust imitation of diverse behaviors.
+InAdvances in Neural Information Processing Systems ,
+2017.Wooldridge, M. An introduction to multiagent systems . John
+Wiley & Sons, 2009.
+Zhou, Z., Bambos, N., and Glynn, P. Dynamics on linear in-
+ﬂuence network games under stochastic environments. In
+International Conference on Decision and Game Theory
+for Security , 2016a.
+Zhou, Z., Yolken, B., Miura-Ko, R. A., and Bambos, N. A
+game-theoretical formulation of inﬂuence networks. In
+American Control Conference , 2016b.Learning Policy Representations in Multiagent Systems
+A. Experimental Setup
+RoboSumo Environment
+To limit the scope of our study, we restrict agent morpholo-
+gies to only 4-leg robots. During the game, observations of
+each agent were represented by a 120-dimensional vector
+comprised of positions and velocities of its own body and
+positions of the opponent’s body; agent’s actions were 8-
+dimensional vectors that represented torques applied to the
+corresponding joints.
+NETWORK ARCHITECTURE
+Agent policies are parameterized as multi-layer perceptrons
+(MLPs) with 2 hidden layers of 90 units each. For the
+embedding network, we used another MLP network with 2
+hidden layers of 100 units each to give an embedding of size
+100. For the conditioned policy network we also reduce the
+hidden layer size to 64 units each.
+POLICY OPTIMIZATION
+For learning the population of agents, we use the distributed
+version of PPO algorithm as described in (Al-Shedivat et al.,
+2018) with 210 3learning rate, = 0:2, 16,000 time
+steps per update with 6 epochs 4,000 time steps per batch.
+TRAINING
+For our analysis, we train a diverse collection of 25 agents,
+some of which are trained via self-play and others are trained
+in pairs concurrently, forming a clique agent-interaction
+graph.
+1
+2
+3
+4
+5
+678910
+Figure 7: An example clique agent interaction graph with
+10agents.ParticleWorld Environment
+The overall continuous observation and discrete action space
+for the speaker agents are 3and7dimensions respectively.
+For the listener agents, the observation and action spaces
+are15and5dimensions respectively.
+NETWORK ARCHITECTURE
+Agent policies and shared critic ( i.e., a value function) are
+parameterized as multi-layer perceptrons (MLPs) with 2
+hidden layers of 64 units each. The observation space for
+the speaker is small ( 3dimensions), and a small embedding
+of size 5for the listener policy gives good performance.
+For the embedding network, we again used an MLP with 2
+hidden layers of 100units each.
+POLICY OPTIMIZATION
+For learning the initial population of listener and agent poli-
+cies, we use multiagent deep deterministic policy gradi-
+ents (MADDPG) as the base algorithm (Lowe et al., 2017).
+Adam optimizer (Kingma & Ba, 2015) with a learning rate
+of410 3was used for optimization. Replay buffer size
+was set to 106timesteps.
+TRAINING
+We ﬁrst train 28speaker-listener pairs using the MADDPG
+algorithm. From this collection of 28speakers, we train
+another set of 28listeners, each trained to work with a
+speaker pair, forming a bipartite agent-interaction graph.
+We choose the best 14listeners for later experiments.
+1
+2
+3
+4
+51
+2
+3
+4
+5Speaker Listener
+Figure 8: An example bipartite agent interaction graph with
+5speakers and 5listeners.

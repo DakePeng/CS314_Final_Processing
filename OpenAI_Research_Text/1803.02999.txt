@@ -1,0 +1,660 @@
+On First-Order Meta-Learning Algorithms
+Alex Nichol and Joshua Achiam and John Schulman
+OpenAI
+falex, jachiam, joschu g@openai.com
+Abstract
+This paper considers meta-learning problems, where there is a distribution of tasks, and we
+would like to obtain an agent that performs well (i.e., learns quickly) when presented with a
+previously unseen task sampled from this distribution. We analyze a family of algorithms for
+learning a parameter initialization that can be ne-tuned quickly on a new task, using only rst-
+order derivatives for the meta-learning updates. This family includes and generalizes rst-order
+MAML, an approximation to MAML obtained by ignoring second-order derivatives. It also
+includes Reptile, a new algorithm that we introduce here, which works by repeatedly sampling
+a task, training on it, and moving the initialization towards the trained weights on that task.
+We expand on the results from Finn et al. showing that rst-order meta-learning algorithms
+perform well on some well-established benchmarks for few-shot classication, and we provide
+theoretical analysis aimed at understanding why these algorithms work.
+1 Introduction
+While machine learning systems have surpassed humans at many tasks, they generally need far
+more data to reach the same level of performance. For example, Schmidt et al. [17, 15] showed
+that human subjects can recognize new object categories based on a few example images. Lake et
+al. [12] noted that on the Atari game of Frostbite, human novices were able to make signicant
+progress on the game after 15 minutes, but double-dueling-DQN [19] required more than 1000 times
+more experience to attain the same score.
+It is not completely fair to compare humans to algorithms learning from scratch, since humans
+enter the task with a large amount of prior knowledge, encoded in their brains and DNA. Rather
+than learning from scratch, they are ne-tuning and recombining a set of pre-existing skills. The
+work cited above, by Tenenbaum and collaborators, argues that humans' fast-learning abilities can
+be explained as Bayesian inference, and that the key to developing algorithms with human-level
+learning speed is to make our algorithms more Bayesian. However, in practice, it is challenging to
+develop (from rst principles) Bayesian machine learning algorithms that make use of deep neural
+networks and are computationally feasible.
+Meta-learning has emerged recently as an approach for learning from small amounts of data.
+Rather than trying to emulate Bayesian inference (which may be computationally intractable),
+meta-learning seeks to directly optimize a fast-learning algorithm, using a dataset of tasks. Speci-
+cally, we assume access to a distribution over tasks, where each task is, for example, a classication
+problem. From this distribution, we sample a training set and a test set of tasks. Our algorithm is
+fed the training set, and it must produce an agent that has good average performance on the test
+set. Since each task corresponds to a learning problem, performing well on a task corresponds to
+learning quickly.
+1arXiv:1803.02999v3  [cs.LG]  22 Oct 2018A variety of dierent approaches to meta-learning have been proposed, each with its own pros
+and cons. In one approach, the learning algorithm is encoded in the weights of a recurrent network,
+but gradient descent is not performed at test time. This approach was proposed by Hochreiter et
+al. [8] who used LSTMs for next-step prediction and has been followed up by a burst of recent
+work, for example, Santoro et al. [16] on few-shot classication, and Duan et al. [3] for the POMDP
+setting.
+A second approach is to learn the initialization of a network, which is then ne-tuned at test
+time on the new task. A classic example of this approach is pretraining using a large dataset (such
+as ImageNet [2]) and ne-tuning on a smaller dataset (such as a dataset of dierent species of bird
+[20]). However, this classic pre-training approach has no guarantee of learning an initialization that
+is good for ne-tuning, and ad-hoc tricks are required for good performance. More recently, Finn
+et al. [4] proposed an algorithm called MAML, which directly optimizes performance with respect
+to this initialization|dierentiating through the ne-tuning process. In this approach, the learner
+falls back on a sensible gradient-based learning algorithm even when it receives out-of-sample data,
+thus allowing it to generalize better than the RNN-based approaches [5]. On the other hand,
+since MAML needs to dierentiate through the optimization process, it's not a good match for
+problems where we need to perform a large number of gradient steps at test time. The authors also
+proposed a variant called rst-order MAML (FOMAML), which is dened by ignoring the second
+derivative terms, avoiding this problem but at the expense of losing some gradient information.
+Surprisingly, though, they found that FOMAML worked nearly as well as MAML on the Mini-
+ImageNet dataset [18]. (This result was foreshadowed by prior work in meta-learning [1, 13] that
+ignored second derivatives when dierentiating through gradient descent, without ill eect.) In this
+work, we expand on that insight and explore the potential of meta-learning algorithms based on
+rst-order gradient information, motivated by the potential applicability to problems where it's too
+cumbersome to apply techniques that rely on higher-order gradients (like full MAML).
+We make the following contributions:
+We point out that rst-order MAML [4] is simpler to implement than was widely recognized
+prior to this article.
+We introduce Reptile, an algorithm closely related to FOMAML, which is equally simple
+to implement. Reptile is so similar to joint training (i.e., training to minimize loss on the
+expecation over training tasks) that it is especially surprising that it works as a meta-learning
+algorithm. Unlike FOMAML, Reptile doesn't need a training-test split for each task, which
+may make it a more natural choice in certain settings. It is also related to the older idea of
+fast weights / slow weights [7].
+We provide a theoretical analysis that applies to both rst-order MAML and Reptile, showing
+that they both optimize for within-task generalization.
+On the basis of empirical evaluation on the Mini-ImageNet [18] and Omniglot [11] datasets,
+we provide some insights for best practices in implementation.
+2 Meta-Learning an Initialization
+We consider the optimization problem of MAML [4]: nd an initial set of parameters, , such that
+for a randomly sampled task with corresponding loss L, the learner will have low loss after k
+2updates. That is:
+minimize
+Eh
+L
+Uk
+()i
+; (1)
+whereUk
+is the operator that updates ktimes using data sampled from . In few-shot learning,
+Ucorresponds to performing gradient descent or Adam [10] on batches of data sampled from .
+MAML solves a version of Equation (1) that makes on additional assumption: for a given task
+, the inner-loop optimization uses training samples A, whereas the loss is computed using test
+samplesB. This way, MAML optimizes for generalization, akin to cross-validation. Omitting the
+superscript k, we notate this as
+minimize
+E[L;B(U;A())]; (2)
+MAML works by optimizing this loss through stochastic gradient descent, i.e., computing
+gMAML =@
+@L;B(U;A()) (3)
+=U0
+;A()L0
+;B(e);wheree=U;A() (4)
+In Equation (4), U0
+;A() is the Jacobian matrix of the update operation U;A.U;Acorresponds to
+adding a sequence of gradient vectors to the initial vector, i.e., U;A() =+g1+g2++gk. (In
+Adam, the gradients are also rescaled elementwise, but that does not change the conclusions.) First-
+order MAML (FOMAML) treats these gradients as constants, thus, it replaces Jacobian U0
+;A()
+by the identity operation. Hence, the gradient used by FOMAML in the outer-loop optimization is
+gFOMAML =L0
+;B(e). Therefore, FOMAML can be implemented in a particularly simple way: (1)
+sample task ; (2) apply the update operator, yielding e=U;A(); (3) compute the gradient at
+e,gFOMAML =L0
+;B(e); and nally (4) plug gFOMAML into the outer-loop optimizer.
+3 Reptile
+In this section, we describe a new rst-order gradient-based meta-learning algorithm called Reptile.
+Like MAML, Reptile learns an initialization for the parameters of a neural network model, such
+that when we optimize these parameters at test time, learning is fast|i.e., the model generalizes
+from a small number of examples from the test task. The Reptile algorithm is as follows:
+Algorithm 1 Reptile (serial version)
+Initialize, the vector of initial parameters
+foriteration = 1 ;2;:::do
+Sample task , corresponding to loss Lon weight vectors e
+Computee=Uk
+(), denoting ksteps of SGD or Adam
+Update +(e )
+end for
+In the last step, instead of simply updating in the direction e , we can treat (  e) as a
+gradient and plug it into an adaptive algorithm such as Adam [10]. (Actually, as we will discuss in
+Section 5.1, it is most natural to dene the Reptile gradient as (  e)=, whereis the stepsize
+3used by the SGD operation.) We can also dene a parallel or batch version of the algorithm that
+evaluates on ntasks each iteration and updates the initialization to
+ +1
+nnX
+i=1(ei ) (5)
+whereei=Uk
+i(); the updated parameters on the ithtask.
+This algorithm looks remarkably similar to joint training on the expected loss E[L]. Indeed,
+if we dene Uto be a single step of gradient descent ( k= 1), then this algorithm corresponds to
+stochastic gradient descent on the expected loss:
+gReptile;k=1=E[ U()]= (6)
+=E[rL()] (7)
+However, if we perform multiple gradient updates in the partial minimization ( k > 1), then the
+expected update E
+Uk
+()
+does not correspond to taking a gradient step on the expected loss
+E[L]. Instead, the update includes important terms coming from second-and-higher derivatives
+ofL, as we will analyze in Section 5.1. Hence, Reptile converges to a solution that's very dierent
+from the minimizer of the expected loss E[L].
+Other than the stepsize parameter and task sampling, the batched version of Reptile is the
+same as the SimuParallelSGD algorithm [21]. SimuParallelSGD is a method for communication-
+ecient distributed optimization, where workers perform gradient updates locally and infrequently
+average their parameters, rather than the standard approach of averaging gradients.
+4 Case Study: One-Dimensional Sine Wave Regression
+As a simple case study, let's consider the 1D sine wave regression problem, which is slightly modied
+from Finn et al. [4]. This problem is instructive since by design, joint training can't learn a very
+useful initialization; however, meta-learning methods can.
+The task= (a;b) is dened by the amplitude aand phase of a sine wave function
+f(x) =asin(x+b). The task distribution by sampling aU([0:1;5:0]) andbU([0;2]).
+Sampleppointsx1;x2;:::;xpU([ 5;5])
+Learner sees ( x1;y1);(x2;y2);:::; (xp;yp) and predicts the whole function f(x)
+Loss is`2error on the whole interval [  5;5]
+L(f) =Z5
+ 5dxkf(x) f(x)k2(8)
+We calculate this integral using 50 equally-spaced points x.
+First note that the average function is zero everywhere, i.e., E[f(x)] = 0, due to the random
+phaseb. Therefore, it is useless to train on the expected loss E[L], as this loss is minimized by
+the zero function f(x) = 0.
+On the other hand, MAML and Reptile give us an initialization that outputs approximately
+f(x) = 0 before training on a task , but the internal feature representations of the network are such
+that after training on the sampled datapoints ( x1;y1);(x2;y2);:::; (xp;yp), it closely approximates
+4the target function f. This learning progress is shown in the gures below. Figure 1 shows that
+after Reptile training, the network can quickly converge to a sampled sine wave and infer the values
+away from the sampled points. As points of comparison, we also show the behaviors of MAML and
+a randomly-initialized network on the same task.
+4
+ 2
+ 0 2 43
+2
+1
+0123
+Before
+After 32
+True
+Sampled
+(a) Before training
+4
+ 2
+ 0 2 44
+3
+2
+1
+01234
+Before
+After 32
+True
+Sampled (b) After MAML training
+4
+ 2
+ 0 2 44
+3
+2
+1
+01234
+Before
+After 32
+True
+Sampled (c) After Reptile training
+Figure 1: Demonstration of MAML and Reptile on a toy few-shot regression problem, where we train on 10
+sampled points of a sine wave, performing 32 gradient steps on an MLP with layers 1 !64!64!1.
+5 Analysis
+In this section, we provide two alternative explanations of why Reptile works.
+5.1 Leading Order Expansion of the Update
+Here, we will use a Taylor series expansion to approximate the update performed by Reptile and
+MAML. We will show that both algorithms contain the same leading-order terms: the rst term
+minimizes the expected loss (joint training), the second and more interesting term maximizes
+within-task generalization. Specically, it maximizes the inner product between the gradients on
+dierent minibatches from the same task. If gradients from dierent batches have positive inner
+product, then taking a gradient step on one batch improves performance on the other batch.
+Unlike in the discussion and analysis of MAML, we won't consider a training set and test set
+from each task; instead, we'll just assume that each task gives us a sequence of kloss functions
+L1;L2;:::;Lk; for example, classication loss on dierent minibatches. We will use the following
+denitions:
+gi=L0
+i(i) (gradient obtained during SGD) (9)
+i+1=i gi(sequence of parameter vectors) (10)
+gi=L0
+i(1) (gradient at initial point) (11)
+Hi=L00
+i(1) (Hessian at initial point) (12)
+For each of these denitions, i2[1;k].
+5First, let's calculate the SGD gradients to O(2) as follows.
+gi=L0
+i(i) =L0
+i(1) +L00
+i(1)(i 1) +O(ki 1k2)|{z}
+=O(2)(Taylor's theorem) (13)
+=gi+Hi(i 1) +O(2) (using denition of gi;Hi) (14)
+=gi Hii 1X
+j=1gj+O(2) (usingi 1= i 1X
+j=1gj) (15)
+=gi Hii 1X
+j=1gj+O(2) (usinggj=gj+O()) (16)
+Next, we will approximate the MAML gradient. Dene Uias the operator that updates the
+parameter vector on minibatch i:Ui() = L0
+i().
+gMAML =@
+@1Lk(k) (17)
+=@
+@1Lk(Uk 1(Uk 2(:::(U1(1))))) (18)
+=U0
+1(1)U0
+k 1(k 1)L0
+k(k) (repeatedly applying the chain rule) (19)
+= 
+I L00
+1(1)
+ 
+I L00
+k 1(k 1)
+L0
+k(k) (using U0
+i() =I L00
+i()) (20)
+=0
+@k 1Y
+j=1(I L00
+j(j))1
+Agk (product notation, denition of gk) (21)
+Next, let's expand to leading order
+gMAML =0
+@k 1Y
+j=1(I Hj)1
+A0
+@gk Hkk 1X
+j=1gj1
+A+O(2) (22)
+(replacingL00
+j(j) withHj, and replacing gkusing Equation (16))
+=0
+@I k 1X
+j=1Hj1
+A0
+@gk Hkk 1X
+j=1gj1
+A+O(2) (23)
+=gk k 1X
+j=1Hjgk Hkk 1X
+j=1gj+O(2) (24)
+For simplicity of exposition, let's consider the k= 2 case, and later we'll provide the general
+formulas.
+gMAML =g2 H2g1 H1g2+O(2) (25)
+gFOMAML =g2 =g2 H2g1+O(2) (26)
+gReptile =g1+g2=g1+g2 H2g1+O(2) (27)
+As we will show in the next paragraph, the terms like H2g1serve to maximize the inner products
+between the gradients computed on dierent minibatches, while lone gradient terms like g1take us
+to the minimum of the joint training problem.
+6When we take the expectation of gFOMAML ,gReptile , andgMAML under minibatch sampling,
+we are left with only two kinds of terms which we will call AvgGrad and AvgGradInner. In the
+equations below E;1;2[:::] means that we are taking the expectation over the task and the two
+minibatches dening L1andL2, respectively.
+AvgGrad is dened as gradient of expected loss.
+AvgGrad = E;1[g1] (28)
+( AvgGrad) is the direction that brings towards the minimum of the \joint training"
+problem; the expected loss over tasks.
+The more interesting term is AvgGradInner, dened as follows:
+AvgGradInner = E;1;2
+H2g1
+(29)
+=E;1;2
+H1g2
+(interchanging indices 1 ;2) (30)
+=1
+2E;1;2
+H2g1+H1g2
+(averaging last two equations) (31)
+=1
+2E;1;2@
+@1(g1g2)
+(32)
+Thus, ( AvgGradInner) is the direction that increases the inner product between gradients
+of dierent minibatches for a given task, improving generalization.
+Recalling our gradient expressions, we get the following expressions for the meta-gradients, for
+SGD withk= 2:
+E[gMAML ] = (1)AvgGrad (2)AvgGradInner + O(2) (33)
+E[gFOMAML ] = (1)AvgGrad ()AvgGradInner + O(2) (34)
+E[gReptile ] = (2)AvgGrad ()AvgGradInner + O(2) (35)
+In practice, all three gradient expressions rst bring us towards the minimum of the expected loss
+over tasks, then the higher-order AvgGradInner term enables fast learning by maximizing the inner
+product between gradients within a given task.
+Finally, we can extend these calculations to the general k2 case:
+gMAML =gk Hkk 1X
+j=1gj k 1X
+j=1Hjgk+O(2) (36)
+E[gMAML ] = (1)AvgGrad (2(k 1))AvgGradInner (37)
+gFOMAML =gk=gk Hkk 1X
+j=1gj+O(2) (38)
+E[gFOMAML ] = (1)AvgGrad ((k 1))AvgGradInner (39)
+gReptile = (k+1 1)==kX
+i=1gi=kX
+i=1gi kX
+i=1i 1X
+j=1Higj+O(2) (40)
+E[gReptile ] = (k)AvgGrad  1
+2k(k 1)
+AvgGradInner (41)
+As in thek= 2, the ratio of coecients of the AvgGradInner term and the AvgGrad term goes
+MAML>FOMAML >Reptile. However, in all cases, this ratio increases linearly with both the
+stepsizeand the number of iterations k. Note that the Taylor series approximation only holds
+for smallk.
+7/u1D4B2*1/u1D4B2*2ϕFigure 2: The above illustration shows the sequence of iterates obtained by moving alternately towards two
+optimal solution manifolds W1andW2and converging to the point that minimizes the average squared
+distance. One might object to this picture on the grounds that we converge to the same point regardless of
+whether we perform one step or multiple steps of gradient descent. That statement is true, however, note
+that minimizing the expected distance objective E[D(;W)] is dierent than minimizing the expected loss
+objective E[L(f)]. In particular, there is a high-dimensional manifold of minimizers of the expected loss
+L(e.g., in the sine wave case, many neural network parameters give the zero function f() = 0), but the
+minimizer of the expected distance objective is typically a single point.
+5.2 Finding a Point Near All Solution Manifolds
+Here, we argue that Reptile converges towards a solution that is close (in Euclidean distance) to
+each task's manifold of optimal solutions. This is a informal argument and should be taken much
+less seriously than the preceding Taylor series analysis.
+Letdenote the network initialization, and let Wdenote the set of optimal parameters for
+task. We want to nd such that the distance D(;W) is small for all tasks.
+minimize
+E1
+2D(;W)2
+(42)
+We will show that Reptile corresponds to performing SGD on that objective.
+Given a non-pathological set SRd, then for almost all points 2Rdthe gradient of the
+squared distance D(;S)2is 2( PS()), wherePS() is the projection (closest point) of onto
+S. Thus,
+rE1
+2D(;W)2
+=E1
+2rD(;W)2
+(43)
+=E[ PW()];wherePW() = arg min
+p2WD(p;) (44)
+Each iteration of Reptile corresponds to sampling a task and performing a stochastic gradient
+update
+  r1
+2D(;W)2(45)
+= ( PW()) (46)
+= (1 )+PW(): (47)
+In practice, we can't exactly compute PW(), which is dened as a minimizer of L. However, we
+can partially minimize this loss using gradient descent. Hence, in Reptile we replace W
+() by the
+result of running ksteps of gradient descent on Lstarting with initialization .
+6 Experiments
+6.1 Few-Shot Classication
+We evaluate our method on two popular few-shot classication tasks: Omniglot [11] and Mini-
+ImageNet [18]. These datasets make it easy to compare our method to other few-shot learning
+8approaches like MAML.
+In few-shot classication tasks, we have a meta-dataset Dcontaining many classes C, where each
+class is itself a set of example instances fc1;c2;:::;cng. If we are doing K-shot,N-way classication,
+then we sample tasks by selecting Nclasses from Cand then selecting K+ 1 examples for each
+class. We split these examples into a training set and a test set, where the test set contains a single
+example for each class. The model gets to see the entire training set, and then it must classify a
+randomly chosen sample from the test set. For example, if you trained a model for 5-shot, 5-way
+classication, then you would show it 25 examples (5 per class) and ask it to classify a 26thexample.
+In addition to the above setup, we also experimented with the transductive setting, where the
+model classies the entire test set at once. In our transductive experiments, information was shared
+between the test samples via batch normalization [9]. In our non-transductive experiments, batch
+normalization statistics were computed using all of the training samples and a single test sample.
+We note that Finn et al. [4] use transduction for evaluating MAML.
+For our experiments, we used the same CNN architectures and data preprocessing as Finn et
+al. [4]. We used the Adam optimizer [10] in the inner loop, and vanilla SGD in the outer loop,
+throughout our experiments. For Adam we set 1= 0 because we found that momentum reduced
+performance across the board.1During training, we never reset or interpolated Adam's rolling
+moment data; instead, we let it update automatically at every inner-loop training step. However,
+we did backup and reset the Adam statistics when evaluating on the test set to avoid information
+leakage.
+The results on Omniglot and Mini-ImageNet are shown in Tables 1 and 2. While MAML,
+FOMAML, and Reptile have very similar performance on all of these tasks, Reptile does slightly
+better than the alternatives on Mini-ImageNet and slightly worse on Omniglot. It also seems that
+transduction gives a performance boost in all cases, suggesting that further research should pay
+close attention to its use of batch normalization during testing.
+Algorithm 1-shot 5-way 5-shot 5-way
+MAML + Transduction 48:701:84% 63:110:92%
+1st-order MAML + Transduction 48:071:75% 63:150:91%
+Reptile 47:070:26% 62:740:37%
+Reptile + Transduction 49:970:32% 65:990:58%
+Table 1: Results on Mini-ImageNet. Both MAML and 1st-order MAML results are from [4].
+Algorithm 1-shot 5-way 5-shot 5-way 1-shot 20-way 5-shot 20-way
+MAML + Transduction 98:70:4% 99:90:1% 95:80:3% 98:90:2%
+1st-order MAML + Transduction 98:30:5% 99:20:2% 89:40:5% 97:90:1%
+Reptile 95:390:09% 98:900:10% 88:140:15% 96:650:33%
+Reptile + Transduction 97:680:04% 99:480:06% 89:430:14% 97:120:32%
+Table 2: Results on Omniglot. MAML results are from [4]. 1st-order MAML results were generated by the
+code for [4] with the same hyper-parameters as MAML.
+1This nding also matches our analysis from Section 5.1, which suggests that Reptile works because sequential
+steps come from dierent mini-batches. With momentum, a mini-batch has inuence over the next few steps, reducing
+this eect.
+96.2 Comparing Dierent Inner-Loop Gradient Combinations
+For this experiment, we used four non-overlapping mini-batches in each inner-loop, yielding gra-
+dientsg1,g2,g3, andg4. We then compared learning performance when using dierent linear
+combinations of the gi's for the outer loop update. Note that two-step Reptile corresponds to
+g1+g2, and two-step FOMAML corresponds to g2.
+To make it easier to get an apples-to-apples comparison between dierent linear combinations,
+we simplied our experimental setup in several ways. First, we used vanilla SGD in the inner- and
+outer-loops. Second, we did not use meta-batches. Third, we restricted our experiments to 5-shot,
+5-way Omniglot. With these simplications, we did not have to worry as much about the eects
+of hyper-parameters or optimizers.
+Figure 3 shows the learning curves for various inner-loop gradient combinations. For gradient
+combinations with more than one term, we ran both a sum and an average of the inner gradients
+to correct for the eective step size increase.
+0 5000 10000 15000 20000 25000 30000 35000 40000
+Iteration0.00.20.40.60.81.0Accuracyg1
+1
+2*(g1+g2)
+g1+g2
+g2
+1
+3*(g1+g2+g3)
+g1+g2+g3
+g3
+1
+4*(g1+g2+g3+g4)
+g1+g2+g3+g4
+g4
+Figure 3: Dierent inner-loop gradient combinations on 5-shot 5-way Omniglot.
+As expected, using only the rst gradient g1is quite ineective, since it amounts to opti-
+mizing the expected loss over all tasks. Surprisingly, two-step Reptile is noticeably worse than
+two-step FOMAML, which might be explained by the fact that two-step Reptile puts less weight
+on AvgGradInner relative to AvgGrad (Equations (34) and (35)). Most importantly, though, all
+the methods improve as the number of mini-batches increases. This improvement is more signicant
+when using a sum of all gradients (Reptile) rather than using just the nal gradient (FOMAML).
+This also suggests that Reptile can benet from taking many inner loop steps, which is consistent
+with the optimal hyper-parameters found for Section 6.1.
+101 3 5 7 9 11 13 15
+Inner Iterations0.00.20.40.60.81.0Test Accuracy
+Reptile (cycling)
+FOMAML (separate-tail, cycling)
+FOMAML (shared-tail, replacement)
+FOMAML (shared-tail, cycling)(a) Final test performance vs.
+number of inner-loop iterations.
+20 40 60 80 100
+Inner Batch Size0.00.20.40.60.81.0Test Accuracy
+Reptile (cycling)
+FOMAML (separate-tail, cycling)
+FOMAML (shared-tail, replacement)
+FOMAML (shared-tail, cycling)(b) Final test performance vs.
+inner-loop batch size.
+7.5
+ 5.0
+ 2.5
+ 0.0 2.5 5.0
+log2(Initial Outer Step)0.00.20.40.60.81.0Test Accuracy
+(c) Final test performance vs.
+outer-loop step size for shared-
+tail FOMAML with batch size
+100 (full batches).
+Figure 4: The results of hyper-parameter sweeps on 5-shot 5-way Omniglot.
+6.3 Overlap Between Inner-Loop Mini-Batches
+Both Reptile and FOMAML use stochastic optimization in their inner-loops. Small changes to
+this optimization procedure can lead to large changes in nal performance. This section explores
+the sensitivity of Reptile and FOMAML to the inner loop hyperparameters, and also shows that
+FOMAML's performance signicantly drops if mini-batches are selected the wrong way.
+The experiments in this section look at the dierence between shared-tail FOMAML , where
+the nal inner-loop mini-batch comes from the same set of data as the earlier inner-loop batches,
+toseparate-tail FOMAML , where the nal mini-batch comes from a disjoint set of data. Viewing
+FOMAML as an approximation to MAML, separate-tail FOMAML can be seen as the more correct
+approach (and was used by Finn et al. [4]), since the training-time optimization resembles the
+test-time optimization (where the test set doesn't overlap with the training set). Indeed, we nd
+that separate-tail FOMAML is signicantly better than shared-tail FOMAML. As we will show,
+shared-tail FOMAML degrades in performance when the data used to compute the meta-gradient
+(gFOMAML =gk) overlaps signicantly with the earlier batches; however, Reptile and separate-tail
+MAML maintain performance and are not very sensitive to the inner-loop hyperparameters.
+Figure 4a shows that when minibatches are selected by cycling through the training data
+(shared-tail, cycle), shared-tail FOMAML performs well up to four inner-loop iterations, but
+drops in performance starting at ve iterations, where the nal minibatch (used to compute
+gFOMAML =gk) overlaps with the earlier ones. When we use random sampling instead (shared-tail,
+replacement), shared-tail FOMAML degrades more gradually. We hypothesize that this is because
+some samples still appear in the nal batch that were not in the previous batches. The eect is
+stochastic, so it makes sense that the curve is smoother.
+Figure 4b shows a similar phenomenon, but here we xed the inner-loop to four iterations
+and instead varied the batch size. For batch sizes greater than 25, the nal inner-loop batch for
+shared-tail FOMAML necessarily contains samples from the previous batches. Similar to Figure 4a,
+here we observe that shared-tail FOMAML with random sampling degrades more gradually than
+shared-tail FOMAML with cycling.
+In both of these parameter sweeps, separate-tail FOMAML and Reptile do not degrade in
+performance as the number of inner-loop iterations or batch size changes.
+There are several possible explanations for above ndings. For example, one might hypothesize
+that shared-tail FOMAML is only worse in these experiments because its eective step size is
+much lower than that of separate-tail FOMAML. However, Figure 4c suggests that this is not the
+11case: performance was equally poor for every choice of step size in a thorough sweep. A dierent
+hypothesis is that shared-tail FOMAML performs poorly because, after a few inner-loop steps on
+a sample, the gradient of the loss for that sample does not contain very much useful information
+about the sample. In other words, the rst few SGD steps might bring the model close to a local
+optimum, and then further SGD steps might simply bounce around this local optimum.
+7 Discussion
+Meta-learning algorithms that perform gradient descent at test time are appealing because of their
+simplicity and generalization properties [5]. The eectiveness of ne-tuning (e.g. from models
+trained on ImageNet [2]) gives us additional faith in these approaches. This paper proposed a new
+algorithm called Reptile, whose training process is only subtlely dierent from joint training and
+only uses rst-order gradient information (like rst-order MAML).
+We gave two theoretical explanations for why Reptile works. First, by approximating the update
+with a Taylor series, we showed that SGD automatically gives us the same kind of second-order
+term that MAML computes. This term adjusts the initial weights to maximize the dot product
+between the gradients of dierent minibatches on the same task|i.e., it encourages the gradients
+to generalize between minibatches of the same task. We also provided a second informal argument,
+which is that Reptile nds a point that is close (in Euclidean distance) to all of the optimal solution
+manifolds of the training tasks.
+While this paper studies the meta-learning setting, the Taylor series analysis in Section 5.1
+may have some bearing on stochastic gradient descent in general. It suggests that when doing
+stochastic gradient descent, we are automatically performing a MAML-like update that maximizes
+the generalization between dierent minibatches. This observation partly explains why ne tuning
+(e.g., from ImageNet to a smaller dataset [20]) works well. This hypothesis would suggest that joint
+training plus ne tuning will continue to be a strong baseline for meta-learning in various machine
+learning problems.
+8 Future Work
+We see several promising directions for future work:
+Understanding to what extent SGD automatically optimizes for generalization, and whether
+this eect can be amplied in the non-meta-learning setting.
+Applying Reptile in the reinforcement learning setting. So far, we have obtained negative
+results, since joint training is a strong baseline, so some modications to Reptile might be
+necessary.
+Exploring whether Reptile's few-shot learning performance can be improved by deeper archi-
+tectures for the classier.
+Exploring whether regularization can improve few-shot learning performance, as currently
+there is a large gap between training and testing error.
+Evaluating Reptile on the task of few-shot density modeling [14].
+12References
+[1] Marcin Andrychowicz, Misha Denil, Sergio Gomez, Matthew W Homan, David Pfau, Tom Schaul, and
+Nando de Freitas. Learning to learn by gradient descent by gradient descent. In Advances in Neural
+Information Processing Systems , pages 3981{3989, 2016.
+[2] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. Imagenet: A large-scale hi-
+erarchical image database. In Computer Vision and Pattern Recognition, 2009. CVPR 2009. IEEE
+Conference on , pages 248{255. IEEE, 2009.
+[3] Yan Duan, John Schulman, Xi Chen, Peter L Bartlett, Ilya Sutskever, and Pieter Abbeel. RL2: Fast
+reinforcement learning via slow reinforcement learning. arXiv preprint arXiv:1611.02779 , 2016.
+[4] Chelsea Finn, Pieter Abbeel, and Sergey Levine. Model-agnostic meta-learning for fast adaptation of
+deep networks. arXiv preprint arXiv:1703.03400 , 2017.
+[5] Chelsea Finn and Sergey Levine. Meta-learning and universality: Deep representations and gradient
+descent can approximate any learning algorithm. arXiv preprint arXiv:1710.11622 , 2017.
+[6] Nikolaus Hansen. The CMA evolution strategy: a comparing review. In Towards a new evolutionary
+computation , pages 75{102. Springer, 2006.
+[7] Georey E Hinton and David C Plaut. Using fast weights to deblur old memories. In Proceedings of
+the ninth annual conference of the Cognitive Science Society , pages 177{186, 1987.
+[8] Sepp Hochreiter, A Steven Younger, and Peter R Conwell. Learning to learn using gradient descent. In
+International Conference on Articial Neural Networks , pages 87{94. Springer, 2001.
+[9] Sergey Ioe and Christian Szegedy. Batch normalization: Accelerating deep network training by reduc-
+ing internal covariate shift. arXiv preprint arXiv:1502.03167 , 2015.
+[10] Diederik P. Kingma and Jimmy Ba. Adam: A method for stochastic optimization. In International
+Conference on Learning Representations (ICLR) , 2015.
+[11] Brenden M. Lake, Ruslan Salakhutdinov, Jason Gross, and Joshua B. Tenenbaum. One shot learning
+of simple visual concepts. In Conference of the Cognitive Science Society (CogSci) , 2011.
+[12] Brenden M Lake, Ruslan Salakhutdinov, and Joshua B Tenenbaum. Human-level concept learning
+through probabilistic program induction. Science , 350(6266):1332{1338, 2015.
+[13] Sachin Ravi and Hugo Larochelle. Optimization as a model for few-shot learning. In International
+Conference on Learning Representations (ICLR) , 2017.
+[14] Scott Reed, Yutian Chen, Thomas Paine, A aron van den Oord, SM Eslami, Danilo Rezende, Oriol
+Vinyals, and Nando de Freitas. Few-shot autoregressive density estimation: Towards learning to learn
+distributions. arXiv preprint arXiv:1710.10304 , 2017.
+[15] Ruslan Salakhutdinov, Joshua Tenenbaum, and Antonio Torralba. One-shot learning with a hierarchi-
+cal nonparametric bayesian model. In Proceedings of ICML Workshop on Unsupervised and Transfer
+Learning , pages 195{206, 2012.
+[16] Adam Santoro, Sergey Bartunov, Matthew Botvinick, Daan Wierstra, and Timothy Lillicrap. Meta-
+learning with memory-augmented neural networks. In International conference on machine learning ,
+pages 1842{1850, 2016.
+[17] Lauren A Schmidt. Meaning and compositionality as statistical induction of categories and constraints .
+PhD thesis, Massachusetts Institute of Technology, 2009.
+[18] Oriol Vinyals, Charles Blundell, Tim Lillicrap, Daan Wierstra, et al. Matching networks for one shot
+learning. In Advances in Neural Information Processing Systems , pages 3630{3638, 2016.
+[19] Ziyu Wang, Tom Schaul, Matteo Hessel, Hado Van Hasselt, Marc Lanctot, and Nando De Freitas.
+Dueling network architectures for deep reinforcement learning. arXiv preprint arXiv:1511.06581 , 2015.
+13[20] Ning Zhang, Je Donahue, Ross Girshick, and Trevor Darrell. Part-based R-CNNs for ne-grained
+category detection. In European conference on computer vision , pages 834{849. Springer, 2014.
+[21] Martin Zinkevich, Markus Weimer, Lihong Li, and Alex J Smola. Parallelized stochastic gradient
+descent. In Advances in neural information processing systems , pages 2595{2603, 2010.
+A Hyper-parameters
+For all experiments, we linearly annealed the outer step size to 0. We ran each experiment with
+three dierent random seeds, and computed the condence intervals using the standard deviation
+across the runs.
+Initially, we tried optimizing the Reptile hyper-parameters using CMA-ES [6]. However, we
+found that most hyper-parameters had little eect on the resulting performance. After seeing this
+result, we simplied all of the hyper-parameters and shared hyper-parameters between experiments
+when it made sense.
+Table 3: Reptile hyper-parameters for the Omniglot comparison between all algorithms.
+Parameter 5-way 20-way
+Adam learning rate 0.001 0.0005
+Inner batch size 10 20
+Inner iterations 5 10
+Training shots 10 10
+Outer step size 1.0 1.0
+Outer iterations 100K 200K
+Meta-batch size 5 5
+Eval. inner iterations 50 50
+Eval. inner batch 5 10
+Table 4: Reptile hyper-parameters for the Mini-ImageNet comparison between all algorithms.
+Parameter 1-shot 5-shot
+Adam learning rate 0:001 0:001
+Inner batch size 10 10
+Inner iterations 8 8
+Training shots 15 15
+Outer step size 1.0 1.0
+Outer iterations 100K 100K
+Meta-batch size 5 5
+Eval. inner batch size 5 15
+Eval. inner iterations 50 50
+14Table 5: Hyper-parameters for Section 6.2. All outer step sizes were linearly annealed to zero during training.
+Parameter Value
+Inner learning rate 310 3
+Inner batch size 25
+Outer step size 0.25
+Outer iterations 40K
+Eval. inner batch size 25
+Eval. inner iterations 5
+Table 6: Hyper-parameters Section 6.3. All outer step sizes were linearly annealed to zero during training.
+Parameter Figure 4b Figure 4a Figure 4c
+Inner learning rate 310 3310 3310 3
+Inner batch size - 25 100
+Inner iterations 4 - 4
+Outer step size 1.0 1.0 -
+Outer iterations 40K 40K 40K
+Eval. inner batch size 25 25 25
+Eval. inner iterations 5 5 5
+15
