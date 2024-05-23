@@ -17,7 +17,7 @@ def process_file(file_path):
     content = content.replace('- ', '')
 
     # Remove words that are numbers surrounded by square brackets
-    content = re.sub(r'\[\s*\d+\s*\]', '', content)
+    content = re.sub(r'\[\s*\d+(?:\s*,\s*\d+)*\s*\]', '', content)
 
     # Write the modified content back to the file
     with open(file_path, 'w') as file:
