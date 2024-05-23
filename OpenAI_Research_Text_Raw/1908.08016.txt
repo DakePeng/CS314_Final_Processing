@@ -1,0 +1,1211 @@
+TESTING ROBUSTNESS AGAINST UNFORESEEN
+ADVERSARIES
+Maximilian Kaufmann∗
+UK Frontier AI TaskforceDaniel Kang∗
+UC BerkeleyYi Sun∗
+University of ChicagoSteven Basart
+Center for AI Safety
+Xuwang Yin
+Center for AI SafetyMantas Mazeika
+Center for AI SafetyAkul Arora
+UC BerkeleyAdam Dziedzic
+Toronto University
+Franziska Boenisch
+Vector InstituteJacob Steinhardt
+UC BerkeleyDan Hendrycks
+Center for AI Safety
+ABSTRACT
+Adversarial robustness research primarily focuses on Lpperturbations, and most defenses
+are developed with identical training-time and test-time adversaries. However, in real-
+world applications developers are unlikely to have access to the full range of attacks or
+corruptions their system will face. Furthermore, worst-case inputs are likely to be diverse
+and need not be constrained to the Lpball. To narrow in on this discrepancy between re-
+search and reality we introduce ImageNet -UA, a framework for evaluating model robust-
+ness against a range of unforeseen adversaries , including eighteen new non- Lpattacks.
+To perform well on ImageNet -UA, defenses must overcome a generalization gap and be
+robust to a diverse attacks not encountered during training. In extensive experiments, we
+find that existing robustness measures do not capture unforeseen robustness, that standard
+robustness techniques are beat by alternative training strategies, and that novel methods
+can improve unforeseen robustness. We present ImageNet -UAas a useful tool for the
+community for improving the worst-case behavior of machine learning systems.
+1 I NTRODUCTION
+Neural networks perform well on a variety of tasks, yet can be consistently fooled by minor adversarial
+distortions (Szegedy et al., 2013; Goodfellow et al., 2014). This has led to an extensive and active area
+of research, mainly focused on the threat model of an “ Lp-bounded adversary” that adds imperceptible
+distortions to model inputs to cause misclassification. However, this classic threat model may fail to fully
+capture many real-world concerns regarding worst-case robustness (Gilmer et al., 2018). Firstly, real-world
+worst-case distributions are likely to be varied, and are unlikely to be constrained to the Lpball. Secondly,
+developers will not have access to the worst-case inputs to which their systems will be exposed to. For
+example, online advertisers use perturbed pixels in ads to defeat ad blockers trained only on the previous
+generation of ads in an ever-escalating arms race (Tram `er et al., 2018). Furthermore, although research has
+shown that adversarial training can lead to overfitting, wherein robustness against one particular adversary
+does not generalize (Dai et al., 2022; Yu et al., 2021; Stutz et al., 2020; Tramer & Boneh, 2019), the existing
+literature is still focuses on defenses that train against the test-time attacks. This robustness to a train-test
+distribution shift has been studied when considering average-case corruptions (Hendrycks & Dietterich,
+2018), but we take this to the worst-case setting.
+We address the limitations of current adversarial robustness evaluations by providing a repository of nine-
+teen gradient-based attacks, which are used to create ImageNet -UA1—a benchmark for evaluating the un-
+foreseen robustness of models on the popular ImageNet dataset (Deng et al., 2009). Defenses achieving
+high Unforeseen Adversarial Accuracy ( UA2) onImageNet -UAdemonstrate the ability to generalize to a
+diverse set of adversaries not seen at train time, demonstrating a much more realistic threat model than the
+Lpadversaries which are a focus of the literature.
+∗Equal contribution.
+1Code available at github.com/centerforaisafety/adversarial-corruptions
+1arXiv:1908.08016v4  [cs.LG]  30 Oct 2023Wood
+ Snow Original
+ Glitch Kaleidoscope
+Elastic JPEG Gabor Pixel HSV
+Whirlpool Fog FBM Polkadot
+Blur Klotski TextureEdge
+Prison Mix
+Figure 1: The full suite of attacks. We present nineteen differentiable non- Lpattacks as part of our
+codebase (eighteen of which are novel). For the purpose of visualization, higher distortion levels than are
+used in our benchmark have been chosen. See Appendix E for adversarial examples generated with the
+distortion levels used within our benchmark, and Appendix I for a human study on semantic preservation.
+Our results show that unforeseen robustness is distinct from existing robustness metrics, highlighting the
+need for a new measure which better captures the generalization of defense methods. We use ImageNet -UA
+reveal that models with high L∞attack robustness (the most ubiquitous measure of robustness in the liter-
+ature) do not generalize well to new attacks, recommending L2as a stronger baseline. We further find that
+Lptraining can be improved on by alternative training processes, and suggest that the community focuses
+on methods with better generalization behavior. Interestingly, unlike in the Lpcase, we find that progress
+on CV benchmarks has at least partially tracked unforeseen robustness. We are hopeful that ImageNet -UA
+can provide an improved progress measure for defenses aiming to achieve real-world worst-case robustness.
+To summarize, we make the following contributions:
+• We design eighteen novel non- Lpattacks, constituting a large increase in the set of dataset-agnostic
+non-Lpattacks available in the literature.
+• We make use of these attacks to form a new benchmark ( ImageNet -UA), standardizing and greatly
+expanding the scope of unforeseen robustness evaluation.
+• We show that it UA2 is distinct from existing robustness metrics in the literature, and demonstrates
+that classical Lp-training focused defense strategies can be improved on. We also measure the
+unforeseen robustness of a wide variety of techniques, finding promising research directions for
+generalizing adversarial robustness.
+20 5 10 15 20 25
+Number of Steps0.00.20.40.60.8P (Otter)
+Figure 2: Progression of an attack. As we optimize our differentiable corruptions, model performance
+decreases, while leaving the image semantics unchanged. Unoptimized versions of our attacks have a
+moderate impact on classifier performance, similar to common corruptions (Hendrycks & Dietterich, 2019),
+while optimized versions cause large drops in accuracy.
+2 R ELATED WORK
+Evaluating Adversarial Robustness. Adversarial robustness is notoriously difficult to evaluate correctly
+(Papernot et al., 2017; Athalye et al., 2018). To this end, Carlini et al. (2019) provide extensive guidance
+for sound adversarial robustness evaluation. Our ImageNet -UAbenchmark incorporates several of their
+recommendations, such as measuring attack success rates across several magnitudes of distortion and using
+a broader threat model with diverse differentiable attacks. Existing measures of adversarial robustness
+(Croce & Hein, 2020; Moosavi-Dezfooli et al., 2015; Weng et al., 2018) almost exclusively, apply only to
+attacks optimizing over an Lp-ball, limiting their applicability for modeling robustness to new deployment-
+time adversaries.
+Non-LpAttacks. Many attacks either use generative models (Song et al., 2018; Qiu et al., 2019) that are
+often hard to bound and are susceptible to instabilities, or make us of expensive brute-force search tech-
+niques Engstrom et al. (2017). We focus on attacks which are fast by virtue of differentiability, applicable
+to variety of datasets and independent of auxiliary generative models. Previous works presenting suitable
+attacks include Laidlaw & Feizi (2019); Shamsabadi et al. (2021); Zhao et al. (2019), who all transform
+the underlying color space of an image and Xiao et al. (2018) who differentiably warp images, and which
+we adapt to create our own Elastic attack. The literature does not have a sufficiently diverse set of suitable
+adversaries to effectively test the generalization properties of defenses, causing us to develop out suite of
+attacks.
+Unforeseen and Multi-attack Robustness. There exist defense methods which seek to generalize across
+an adversarial train-test gap (Dai et al., 2022; Laidlaw et al., 2020; Lin et al., 2020). Yet, comparison
+between these methods is challenging due to the lack of a standardized benchmark and an insufficient range
+of adversaries to test against. We fill this gap by implementing a unified benchmark for testing unforeseen
+robustness. The more developed field of multi-attack robustness (Tramer & Boneh, 2019) aims to create
+models which are robust to a range of attacks, but works generally focus on a union of Lpadversaries
+(Maini et al., 2020; Madaan et al., 2021a; Croce & Hein, 2022) and do not enforce that test time adversaries
+have to differ from those used during training.
+Common corruptions Several of our attacks (Pixel, Snow, JPEG and Fog) were inspired by existing com-
+mon corruptions (Hendrycks & Dietterich, 2018). We fundamentally change the generation methods to
+make these corruptions differentiable, allowing us to focus on worst-case robustness instead of the average-
+case robustness (see Section 5.1 for empirical an empirical comparison).
+3<latexit sha1_base64="l98jcEUigtbiZXRBP1nzLPPWuOY=">AAACTHicbVBNSyNBEO2J37N+xPXopTFZiCBhJrCrCAtiLh5dMSpksqGnU5O09nQP3TVCGOYHetnD3vZX7GUPKyJsJwbxY+v0+r2q6lcvzqSwGAS/vMrc/MLi0vKK/2F1bX2juvnxwurccOhwLbW5ipkFKRR0UKCEq8wAS2MJl/FNe6Jf3oKxQqtzHGfQS9lQiURwho7qV3nEQSEYoYZ+vU0joWiUMhzFcXFWfi/cC0UKlj6DVlmnh7SttRkIxRDoOSirDW20tbLIFO7u+W5TvxDX5deG2LverfertaAZTIu+B+EM1MisTvvVn9FA8zx1zrhk1nbDIMNewQwKLqH0o9xCxvgNG0LXQcWcsV4xDaOknxwzoImzlGiFdMq+nChYau04jV3n5FD7VpuQ/9O6OSYHvUKoLEdQ/OmjJJcUNZ0kSwfCAEc5doBxI5xXykfMMO7itb4LIXx78ntw0WqGX5qfv7VqR8ezOJbJNtkhDRKSfXJETsgp6RBO7shv8pfcez+8P96D9/jUWvFmM1vkVVUW/wFQVbED</latexit>C2Rn⇥n⇥2: Coordinate Tensor (Constant),Cij=(i, j)
+<latexit sha1_base64="WYVKs/Yj5qDzN1tNYSI/yeNqdu0=">AAAB6nicbVDLSgNBEOz1GeMr6tHLYCIIQtgN+DgGvXiMaB6QLGF20psMmZ1dZmaFEPIJXjwo4tUv8ubfOEn2oIkFDUVVN91dQSK4Nq777aysrq1vbOa28ts7u3v7hYPDho5TxbDOYhGrVkA1Ci6xbrgR2EoU0igQ2AyGt1O/+YRK81g+mlGCfkT7koecUWOlh9J5qVsoumV3BrJMvIwUIUOtW/jq9GKWRigNE1Trtucmxh9TZTgTOMl3Uo0JZUPax7alkkao/fHs1Ak5tUqPhLGyJQ2Zqb8nxjTSehQFtjOiZqAXvan4n9dOTXjtj7lMUoOSzReFqSAmJtO/SY8rZEaMLKFMcXsrYQOqKDM2nbwNwVt8eZk0KmXvsnxxXylWb7I4cnAMJ3AGHlxBFe6gBnVg0IdneIU3RzgvzrvzMW9dcbKZI/gD5/MHK5GNEw==</latexit>+<latexit sha1_base64="3W9h75k4DMjP55jyMAfmzx1LDIg=">AAAB6nicbVDLSgNBEOyNrxhfUY9eBhPBU9gN+DgGBfEY0ZhAsoTZyWwyZHZ2mekVQsgnePGgiFe/yJt/4yTZgyYWNBRV3XR3BYkUBl3328mtrK6tb+Q3C1vbO7t7xf2DRxOnmvEGi2WsWwE1XArFGyhQ8laiOY0CyZvB8HrqN5+4NiJWDzhKuB/RvhKhYBStdF++KXeLJbfizkCWiZeREmSod4tfnV7M0ogrZJIa0/bcBP0x1SiY5JNCJzU8oWxI+7xtqaIRN/54duqEnFilR8JY21JIZurviTGNjBlFge2MKA7MojcV//PaKYaX/lioJEWu2HxRmEqCMZn+TXpCc4ZyZAllWthbCRtQTRnadAo2BG/x5WXyWK1455Wzu2qpdpXFkYcjOIZT8OACanALdWgAgz48wyu8OdJ5cd6dj3lrzslmDuEPnM8fVJiNLg==</latexit>F<latexit sha1_base64="kHUz65HwYxJEhllYsFnCPXLxBy4=">AAAB9XicbVDLSsNAFL3xWeOr6tJNsBVclaTgY1l047KCfUAby2R60w6dTMLMRCmh/+HGhSJu/Rd3/o3TNgttPXDhcM69M/eeIOFMadf9tlZW19Y3Ngtb9vbO7t5+8eCwqeJUUmzQmMeyHRCFnAlsaKY5thOJJAo4toLRzdRvPaJULBb3epygH5GBYCGjRBvpoUtRaJRMDOxyWO4VS27FncFZJl5OSpCj3it+dfsxTSPzCOVEqY7nJtrPiNSMcpzY3VRhQuiIDLBjqCARKj+bbT1xTo3Sd8JYmhLamam/JzISKTWOAtMZET1Ui95U/M/rpDq88jMmklSjoPOPwpQ7OnamETh9JpFqPjaEUMnMrg4dEkmoSULZJgRv8eRl0qxWvIvK+V21VLvO4yjAMZzAGXhwCTW4hTo0gIKEZ3iFN+vJerHerY9564qVzxzBH1ifP4bNkeE=</latexit>f
+<latexit sha1_base64="b6gyBeUOz0V/up3/+LCqNLjVn7M=">AAACFXicbVC7TsMwFHXKq5RXgJHFokViQFVSiYeYKljoVhB9SE2oHNehVh0nsh1EFeUnWPgVFgYQYkVi429w2gxQuJKl43PvuY/jRYxKZVlfRmFufmFxqbhcWlldW98wN7faMowFJi0cslB0PSQJo5y0FFWMdCNBUOAx0vFG51m+c0eEpCG/VuOIuAG65dSnGClN9c2Dyj10KIdOgNTQ85Kr9CbRP0UDIiFPTyuwwaNYwYbWkb5ZtqrWJOBfYOegDPJo9s1PZxDiOCBcYYak7NlWpNwECUUxI2nJiSWJEB7p3j0NOdJT3WRyVQr3NDOAfij04wpO2J+KBAVSjgNPV2bLy9lcRv6X68XKP3ETmt1FOJ4O8mMGVQgzi+CACoIVG2uAsKB6V4iHSCCstJElbYI9e/Jf0K5V7aPq4WWtXD/L7SiCHbAL9oENjkEdXIAmaAEMHsATeAGvxqPxbLwZ79PSgpFrtsGvMD6+Ae0Mng8=</latexit>x2Rn⇥n: Input Image<latexit sha1_base64="TBCYa/WKUqbNK6kHjPI01iTYLq8=">AAAB9XicbVDLTsJAFJ3iC/GFunQzEUxckZbEx5LoxiUm8kigkul0ChOm02bmFiEN/+HGhca49V/c+TcO0IWCJ7nJyTn35t57vFhwDbb9beXW1jc2t/LbhZ3dvf2D4uFRU0eJoqxBIxGptkc0E1yyBnAQrB0rRkJPsJY3vJ35rRFTmkfyASYxc0PSlzzglICRHsvjXhfYGFLij6blXrFkV+w58CpxMlJCGeq94lfXj2gSMglUEK07jh2DmxIFnAo2LXQTzWJCh6TPOoZKEjLtpvOrp/jMKD4OImVKAp6rvydSEmo9CT3TGRIY6GVvJv7ndRIIrt2UyzgBJuliUZAIDBGeRYB9rhgFMTGEUMXNrZgOiCIUTFAFE4Kz/PIqaVYrzmXl4r5aqt1kceTRCTpF58hBV6iG7lAdNRBFCj2jV/RmPVkv1rv1sWjNWdnMMfoD6/MHeOiSgQ==</latexit>xadv
+<latexit sha1_base64="jgiOkofU9sM8mlBjA/Hu9tu7fRQ=">AAACFnicbVDLSsNAFJ3UV42vqks3wVZoQUtS8LEsunHhooJ9QFPKZHrTDp1MwsyktIR+hRt/xY0LRdyKO//G6WOhrQcuHM65l3vv8SJGpbLtbyO1srq2vpHeNLe2d3b3MvsHNRnGgkCVhCwUDQ9LYJRDVVHFoBEJwIHHoO71byZ+fQBC0pA/qFEErQB3OfUpwUpL7cyZS4ArEJR3TdPMuQFWPYJZcjfO+/lh21UwVAnuDMaF01Eh185k7aI9hbVMnDnJojkq7cyX2wlJHOgdhGEpm44dqVaChaKEwdh0YwkRJn3chaamHAcgW8n0rbF1opWO5YdCF1fWVP09keBAylHg6c7J2XLRm4j/ec1Y+VethPIoVsDJbJEfM0uF1iQjq0MFEMVGmmAiqL7VIj0sMNFBSVOH4Cy+vExqpaJzUTy/L2XL1/M40ugIHaM8ctAlKqNbVEFVRNAjekav6M14Ml6Md+Nj1poy5jOH6A+Mzx9o6p5I</latexit>L(f(xadv),y)
+<latexit sha1_base64="bJBB+rMWDqrmVwgbmwbvirDu2ZM=">AAAB9XicbVDLSsNAFL3xWeOr6tJNsAiuSlLwsSwq6LKCfUAby2R60w6dTMLMRCmh/+HGhSJu/Rd3/o3TNgttPXDhcM69M/eeIOFMadf9tpaWV1bX1gsb9ubW9s5ucW+/oeJUUqzTmMeyFRCFnAmsa6Y5thKJJAo4NoPh1cRvPqJULBb3epSgH5G+YCGjRBvpoUNRaJRM9O3azXW3WHLL7hTOIvFyUoIctW7xq9OLaRqZRygnSrU9N9F+RqRmlOPY7qQKE0KHpI9tQwWJUPnZdOuxc2yUnhPG0pTQzlT9PZGRSKlRFJjOiOiBmvcm4n9eO9XhhZ8xkaQaBZ19FKbc0bEzicDpMYlU85EhhEpmdnXogEhCTRLKNiF48ycvkkal7J2VT+8qpeplHkcBDuEITsCDc6jCLdSgDhQkPMMrvFlP1ov1bn3MWpesfOYA/sD6/AHLOpIO</latexit>PGD<latexit sha1_base64="MRDNonhhlTXrcAu7QblhbSZ4xo4=">AAAB73icbVDLTgJBEOzFF+IL9ehlIph4IrskPo5ELx4xkUcCGzI7zMKE2dl1pteEEH7CiweN8ervePNvHGAPClbSSaWqO91dQSKFQdf9dnJr6xubW/ntws7u3v5B8fCoaeJUM95gsYx1O6CGS6F4AwVK3k40p1EgeSsY3c781hPXRsTqAccJ9yM6UCIUjKKV2uUuioibcq9YcivuHGSVeBkpQYZ6r/jV7ccsjbhCJqkxHc9N0J9QjYJJPi10U8MTykZ0wDuWKmq3+JP5vVNyZpU+CWNtSyGZq78nJjQyZhwFtjOiODTL3kz8z+ukGF77E6GSFLlii0VhKgnGZPY86QvNGcqxJZRpYW8lbEg1ZWgjKtgQvOWXV0mzWvEuKxf31VLtJosjDydwCufgwRXU4A7q0AAGEp7hFd6cR+fFeXc+Fq05J5s5hj9wPn8Ac1KPmA==</latexit>⇥
+<latexit sha1_base64="wV0fAR/ZL+C1zjww2vAdpQ2esxE=">AAACHXicbVBNSyNBEO3x2/gV9eilMQoRJMyIH4sns172qGCMkIRQ01OJTXq6h+4a2RD8I172r+zFg7J48CL7b+zEHPwqaHi8V6+q68WZko7C8H8wMTk1PTM7N19YWFxaXimurl06k1uBNWGUsVcxOFRSY40kKbzKLEIaK6zHvdOhXr9B66TRF9TPsJVCV8uOFECeahf3mwI1oZW6W+Bb1fLv3WaCimDneItXk6ETrATFq0QgerxcNybZaRdLYSUcFf8KojEosXGdtYvPzcSIPPWrhALnGlGYUWsAlqRQeFto5g4zPx+62PBQQ4quNRhdd8u3PZPwjrH+aeIj9r1jAKlz/TT2nSnQtfusDcnvtEZOnR+tgdRZTqjF26JOrjgZPoyKJ9KiINX3AISV/q9cXIMF4fNyBR9C9Pnkr+ByrxIdVg7O90onP8dxzLENtsnKLGJH7IT9YmesxgS7Y3/ZA3sM/gT3wb/g6a11Ihh71tmHCl5eAUU3oC4=</latexit>A(x, ) : Adversarial Attack (Wood)
+<latexit sha1_base64="iS3XBJU4i/rFvXkjTwwI8NeAj2E=">AAACN3icbZDLSgMxFIYz3q23qks3wSq4KjMFL7jysnEhomKr0KklkzmtwUxmSM6IZZi3cuNruNONC0Xc+gamF8TbgcDHf3Jy8v9BIoVB1310hoZHRsfGJyYLU9Mzs3PF+YWaiVPNocpjGeuLgBmQQkEVBUq4SDSwKJBwHlzvd/vnN6CNiNUZdhJoRKytREtwhlZqFo98DgpBC9UurPghSGTUF4r6EcOrIMhO88ssoj6KCAz9gkq+bRFuMaO74U2ZHjK0r5h8pVksuWW3V/QveAMokUEdN4sPfhjzNLLjXDJj6p6bYCNjGgWXkBf81EDC+DVrQ92iYnZ9I+v5zumqVULairU9CmlP/T6RsciYThTYm1075nevK/7Xq6fY2mpkQiWp9cX7i1qppBjTbog0FBo4yo4FxrWwf6X8imnGbZKmYEPwflv+C7VK2dsor59USjt7gzgmyBJZJmvEI5tkhxyQY1IlnNyRJ/JCXp1759l5c977V4ecwcwi+VHOxyexD6vO</latexit> 2Rm⇥m⇥2: Adv. LatentsFigure 3: An illustrative example of one of our attacks. All of our attacks function by performing PGD
+optimization on a set of latent variables. In the case of the Wood attack, these latent variables are inputs to
+concentric sine waves ( F(x, y) = sin(p
+x2+y2)) which are overlaid on the image. We design effective
+attacks which are fast, easy to optimize, precisely bound, preserve image semantics, are portable across
+datasets and have variable intensity through the εparameter.
+3 T HEUNFORESEEN ROBUSTNESS THREAT MODEL
+Action Space of Adversaries. The allowed action space of an adversary is defined using a perturbation set
+Sxof potential adversarial examples for each input x. Given such a set, and a classifier fwhich correctly
+classifies a point xwith its ground truth label y, anadversarial example xadvis defined to be a member the
+perturbation set Sxwhich causes the classifier to give an incorrect prediction:
+xadv∈Sx:f(xadv)̸=f(x) (1)
+Then, under some distribution Dof interest, the task of adversarial defenses is typically to achieve high
+accuracy in the face of an adversary which is allowed to optimse within the peturbation set.
+Theunforeseen robustness of a classifier is the classifier’s accuracy under some distribution of adversaries:
+E(x,y),A∼D,A
+min
+xadv∈SAx{1f(xadv)=y}
+. (2)
+This is similar to the usual adversarial accuracy (Madry et al., 2017a) , but instead of including a single Lp
+adversary, we define a diverse distribution of adversaries A(where each adversary A∈Dom (A)defines
+a different perturbation set SA
+xfor each input x).
+Information Available to the Adversaries. To ensure that our adversaries are as strong as possible (Carlini
+et al., 2019), and to avoid the usage of expensive black-box optimization techniques, we allow full white-
+box access to the victim models.
+Constraints on the Defender. We enforce that defenders allow adversaries to compute gradients, in line
+which previous work demonstrating that defenses relying on masking of gradients are ineffective (Athalye
+et al., 2018). We also enforce that defenses do not make use of access to adversaries which are part of
+the test-time distribution A. This assumption of unforeseen adversaries is contrary to most of the literature
+where the most powerful defenses involve explicitly training against the test time adversaries (Madry et al.,
+2017b), and allows us to model more realistic real-world situations where it is unlikely that defenders will
+have full knowledge of the adversaries at deployment time.
+4Model L∞(ε= 4/255) UA2
+Dinov2 Vit-large 27.7 27.2
+Convnext-V2-large IN-1k+22K 0.0 19.2
+Swin-Large ImageNet1K 0.0 16.2
+ConvNext-Base L∞, (ε= 8/255) 58.0 22.3
+Resnet-50, L∞(ε= 8/255) 38.9 10
+Resnet-50 L2, (ε= 5) 34.1 13.9
+Table 1: Lprobustness is not necessary for unforeseen robustness. We highlight some of the models
+which achieve high UA2, while still being susceptible to Lpattacks. These models demonstrate that un-
+foreseen robustness is distinct from achieving Lprobustness.
+4 M EASURING UNFORESEEN ROBUSTNESS
+To evaluate the unforeseen robustness of models, we introduce a new evaluation framework consisting of a
+benchmark ImageNet -UAand metric UA2 (Unforeseen Adversarial Accuracy). We also further release our
+nineteen (eighteen of which novel) approaches for generating non- Lpadversarial examples. We performed
+extensive sweeps to find the most effective hyperparameters for all of our attacks (see Appendix A).
+4.1 G ENERATING ADVERSARIAL EXAMPLES
+Our attacks use a unified generation strategy: Each of our adversaries is defined by a differentiable function
+A, generating an adversarial input xadvfrom an input image xand some latent variables δ:
+xadv=A(x, δ). (3)
+To control the strength of our adversary, we introduce an Lpconstraint to the variables δ(using p=∞or
+p= 2). We define our perturbation sets in terms of these allowed ranges of optimization variables, i.e., for
+attack Awith epsilon constraint ε:
+SA,ε
+x={A(x, δ)| ∥δ∥p≤ε}.
+As is typical in the literature (Madry et al., 2017b), we re-frame the finding of adversarial examples in our
+perturbation set Section 4.1 as a continuous optimization problem, seeking δadvwhich solves:
+δadv= argmin
+δ:∥δ∥p≤ε{L(f(A(x, δ)), y)}, (4)
+and we then use the popular method of Projected Gradient Descent (PGD) (Madry et al., 2017b) to find an
+approximate solution to Equation (4).
+This formulation helps us ensure that our attacks are independent of auxiliary generative models, add min-
+imal overhead compared to the popular PGD adversary (see Appendix C), are usable in a dataset-agnostic
+“plug-and-play” manner, can be used with existing optimization algorithms (see Figure 4a for behavior of
+attacks under optimization), come with a natural way of varying intensity through adjusting εparameter
+(see Figure 4b for behavior under varying ε), and have precisely defined perturbation sets which are not
+dependent on the solutions found to a relaxed constrained optimization problem. As discussed in Section 2,
+this is not the case for most existing attacks in the literature, prompting us to design our new attacks.
+4.2 C ORE ATTACKS
+To provide fast evaluation, we select eight core attacks to form the focus of our evaluation for unforeseen
+robustness. We select the core set for diversity and effectiveness across model scale, leaving the other
+eleven attacks within our repository for the tuning of defense hyperperparameters and for a more complete
+evaluation of new techniques. The eight core attacks are:
+Wood. The wood attack is described in Figure 3.
+50 20 40 60 80 100
+Number of Steps01020304050607080Adv. AccuracyUA2
+jpeg
+elastic
+wood
+glitch
+kaleidescope
+pixel
+snow
+gabor(a) Performance with increased optimization.
+low medium high
+Distortion05101520253035Adv. AccuracyUA2
+jpeg
+elastic
+wood
+glitch
+kaleidescope
+pixel
+snow
+gabor (b) Performance as distortion size is varied
+Figure 4: Attack effectiveness increases with optimization pressure and distortion budget. We average
+performance against our core attacks across all our benchmarked models, demonstrating that our attacks
+respond to increased optimization pressure (Figure 4a). We further demonstrate the importance of the
+gradient-based nature by comparing random grid search to our gradient-based method in Appendix K.
+Furthermore, we demonstrate the ability for our attack stength to be customisable by showing that increasing
+distortion budget reduces model performance (Figure 4b).
+Glitch. Glitch simulates a common behavior in corrupted images of colored fuzziness. Glitch greys out
+the image, splitting it into horizontal bars, before independently shifting color channels within each of these
+bars.
+JPEG. TheJPEG compression algorithm functions by encoding small image patches using the discrete
+cosine transform, and then quantizing the results. The attack functions by optimizing L∞-constrained per-
+turbations within the JPEG -encoded space of compressed images and then reverse-transforming to obtain
+the image in pixel space, using ideas from Shin & Song (2017) to make this differentiable.
+Gabor. Gabor spatially occludes the image with visually diverse Gabor noise (Lagae et al., 2009),
+optimizing the underlying sparse tensor which the Gabor kernels are applied to.
+Kaleidoscope. Kaleidoscope overlays randomly colored polygons onto the image, and then optimizes
+both the homogeneous color of the inside of the shape, and the darkness/lightness of the individual pixels
+on the shape’s border, up to an L∞constraint.
+Pixel. Pixel modifies an image so it appears to be of lower quality, by first splitting the image into m×m
+“pixels” and then and averaging the image color within each block. The optimization variables δthen
+control the level of pixelation, on a per-block bases.
+Elastic. Our only non-novel attack. Elastic is adapted from (Xiao et al., 2018), functioning by which
+warping the image by distortions x′= Flow( x, V), where V:{1, . . . , 224}2→ R2is a vector field on
+pixel space, and Flow sets the value of pixel (i, j)to the bilinearly interpolated original value at (i, j) +
+V(i, j). To make the attack suitable for high-resolution images, we modify the original attack by passing a
+gaussian kernel over V.
+Snow. Snow functions by optimising the intensity of individually snowflakes within an image, which are
+created by passing a convolutional filter over a sparsely populated tensor, and then optimising the non-zero
+entries in this tensor.
+4.3 ImageNet -UA:A NEW BENCHMARK FOR UNFORESEEN ROBUSTNESS
+We introduce ImageNet -UA, a benchmark for evaluating the unforeseen robustness of image classifiers on
+the popular ImageNet dataset (Deng et al., 2009). We also develop CIFAR -10equivalent CIFAR -10-UAfor
+computationally efficient evaluation of defense strategies and attack methods.
+6Model Clean Acc. L∞UA2 JPEG Elastic Wood Glitch Kal. Pixel Snow Gabor
+DINOv2 ViT-large Patch14 86.1 15.3 27.7 14.3 42.6 39.7 17.7 46.2 17.2 14.2 29.9
+ConvNeXt-V2-large IN-1K+22K 87.3 0.0 19.2 0.0 39.1 34.4 21.4 16.1 15.5 4.0 23.1
+ConvNeXt-V2-huge IN-1K 86.3 0.0 17.7 0.0 42.5 21.2 23.8 24.3 6.6 0.7 22.2
+ConvNeXt-base, L∞(4/255) 76.1 58.0 22.3 39.0 23.8 47.9 12.9 2.5 9.7 30.2 12.8
+ViT-base Patch16, L∞(4/255) 76.8 57.1 25.8 52.6 26.3 47.2 13.8 8.1 11.9 27.1 19.5
+Swin-base IN-1K 85.3 0.0 15.2 0.0 31.4 24.6 16.2 6.0 6.9 4.3 32.0
+ResNet-50 76.1 0.0 1.6 0.0 4.4 6.3 0.4 0.0 0.3 0.1 0.9
+ResNet-50 + CutMix 78.6 0.5 6.1 0.2 17.9 15.5 2.5 0.1 6.7 3.0 2.7
+ResNet-50, L∞(8/255) 54.5 38.9 10.0 6.9 11.8 23.9 14.4 0.7 5.2 15.6 1.2
+ResNet-50, L2(5) 56.1 34.1 13.9 39.7 11.9 19.4 12.2 0.3 9.7 15.4 2.5
+Table 2: ImageNet -UAbaselines We plot a range of models on the Pareto frontier on ImageNet -UA, as
+well as several baseline ResNet-50 models to compare between. We see a variety of techniques achieving
+high levels of robustness, demonstrating a rich space of possible interventions. The L∞column tracks
+robustness against a PGD L∞adversary with ε= 4/255. Numbers denote percentages.
+Training Train εClean Acc. UA2
+Standard - 76.1 1.6
+L21 69.1 6.4
+3 62.8 12.2
+5 56.1 13.9
+L∞2/255 69.1 6.4
+4/255 63.9 7.9
+8/255 54.5 10.0
+Table 3: Lptraining. We train a range
+of ResNet-50 models against Lpadversaries
+onImageNet -UADataset Training Clean Acc. UA2
+CIFAR -10L2, ε= 1 82.3 45.8
+L∞, ε= 8/255 86.1 41.5
+CIFAR -10-50ML2, ε= 0.5 95.2 51.2
+L∞, ε= 4/255 92.4 51.5
+Table 4: Lptraining on generated data. We see the
+effect of training when training WRN-28-10 networks on
+CIFAR -10-50M , a 1000x larger diffusion-model generated
+version of CIFAR -10(Wang et al., 2023)
+The unforeseen robustness achieved by a defense is quantified using a new metric, Unforeseen Adversarial
+Accuracy ( UA2), which measures the robustness of a given classifier facross a diverse range of unforeseen
+attacks. In line with Equation (2) we model the deployment-time population of adversaries Aas a categor-
+ical distribution over some finite set A, with a distortion level ϵAfor each adversary A∈A. Equation (2)
+then reduces to:
+UA2 :=1
+|A|X
+A∈AAcc(A, ϵA, f)
+where Acc(A, εa, f)denotes the adversarial accuracy of classifier fagainst attack Aat distortion level
+εA. We select the population of adversaries to be the eight core adversaries from Section 4.2, setting A=
+{JPEG, Elastic, Wood, Glitch, Kaleidoscope, Pixel, Snow, Gabor }.
+We further divide our benchmark by picking three different distortion levels for each attack, leading to three
+different measures of unforeseen robustness: UA2 low,UA2 medandUA2 high(see Appendix A for specific ε
+values used within this work), and we focus on focus on UA2 medfor all of our reports, referring to this
+distortion level as simply UA2. As distortion levels increase, model performance decreases (Figure 4b). We
+perform a human study (Appendix I) to ensure UA2 medpreserves image semantics.
+5 B ENCHMARKING FOR UNFORESEEN ADVERSARIAL ROBUSTNESS
+In this section, we evaluate a range of models on our standardized benchmarks ImageNet -UAand
+CIFAR -10-UA. We aim to present a set of directions for future work, by comparing a wide range of meth-
+ods. We also hope to explore how the problem of unforeseen robustness different from existing robustness
+metrics.
+7Training Strategy Train εClean Acc. UA2
+PixMix - 95.1 15.00
+L∞ 4/255 89.3 37.3
+L∞+ PixMix 4/255 91.4 45.1
+L∞ 8/255 84.3 41.4
+L∞+ PixMix 8/255 87.1 47.4
+Table 5: PixMix and Lptraining. We compare UA2 performance on CIFAR-10 of models trained with
+PixMix and adversarial training. Combining PixMix with adversarial training results in large improvements
+inUA2, demonstrating the potential for novel methods to improve UA2. All numbers denote percentages,
+andL∞training was performed with the TRADES algorithm.
+5.1 H OW DO EXISTING ROBUSTNESS MEASURES RELATE TO UNFORESEEN ROBUSTNESS ?
+We find the difference between existing popular metrics and UA2, highlighting the differential progress
+made possible by UA2:
+Worst-case and average-case robustness behave differently. We compare UA2 to the average-case ro-
+bustness metric given by ImageNet-C (Hendrycks & Dietterich, 2019). As shown in Appendix G, we find
+that performance on this benchmark correlates with non-optimized versions of our attacks. However, the
+optimised versions of our attacks have model robustness profiles more similar to Lpadversaries. We see
+believe this is as after optimisation UA2 becomes a measure of worst case robustness, similar to Lprobust
+accuracy— contrasting with the average-case robustness considered in ImageNet-C.
+Lprobustness is correlated, but distinct, from unforeseen robustness. As shown in Appendix J, unfore-
+seen robustness is correlated with Lprobustness. Our attacks also show similar properties to Lpcounter-
+parts, such as the ability for black-box transfer (Appendix L). However, many models show susceptibility
+toLpadversaries while still performing well on UA2 (Section 4.1), and a range of strategies beat Lptrain-
+ing baselines Section 5.2 . We conclude that UA2 is distinct from Lprobustness, and present UA2 as an
+improved progress measure when working towards real-world worst-case robustness.
+L2-based adversarial training outperforms L∞We see that Lpadversarial training increases the un-
+foreseen robustness of tested models, with L2adversarial training providing the largest increase in UA2
+over standard training (1.6% →13.9%), beating models which are trained against L∞adversaries (1.6%
+→10.0%). We present L2trained models as a strong baseline for unforeseen robustness, noting that the
+discrepancy between L∞andL2training is particularly relevant as L∞is the most ubiquitous measure of
+adversarial robustness in the literature.
+5.2 H OW CAN WE IMPROVE UNFORESEEN ROBUSTNESS ?
+We find several promising directions that improve over Lptraining, and suggest that the community should
+focus more on techniques which we demonstrate to have better generalization properties:
+Combining image augmentations and L∞training. We combine PixMix and L∞training, finding that
+this greatly improves unforeseen robustness over either approach alone ( 37.3→45.1, see Section 5.1).
+This is a novel training strategy which beats strong baselines by combining two distinct robustness tech-
+niques ( Lpadversarial training and data augmentation). The surprising effectiveness of this simple method
+suggests that unforeseen robustness may foster the development of new methods.
+Multi-attack robustness. To evaluate how existing work on robustness to a union of Lpballs may im-
+prove unforeseen robustness, we use CIFAR -10-UAto evaluate a strong multi-attack robustness baseline by
+(Madaan et al., 2021b), which trains a Meta Noise Generator (MNG) that learns the optimal training per-
+turbations to achieve robustness to a union of Lpadversaries. For WRN-28-10 models on CIFAR -10-UA,
+we see a large increase in unforeseen robustness compared to the best Lpbaseline ( 21.4%→51.1%, full
+results in Appendix H ), leaving scaling of such methods to full ImageNet -UAfor future work.
+Bounding perturbations with perceptual distance. We evaluate the UA2 of models trained with Percep-
+tual Adversarial Training (PAT) (Laidlaw et al., 2020). PAT functions by training a model against an adver-
+sary bounded by an estimate of the human perceptual distance, computing the estimate by using the hidden
+states of an image classifier. For computational reasons we train and evaluate ResNet-50s on a 100-image
+8Training Clean Acc. UA2
+Standard 76.1 1.0
+Moex 79.1 6.0
+CutMix 78.6 6.0
+Deepaugment + Augmix 75.8 1.8
+Table 6: Effects of data augmentation on
+UA2.We evaluate the UA2 of a range of data-
+augmented ResNet50 models.Model Clean Acc. UA2
+ConvNeXt-V2-28.6M 83.0 9.8
+ConvNeXt-V1-28M 82.1 5.1
+ConvNeXt-V2-89M 84.9 14.9
+ConvNeXt-V1-89M 83.8 9.7
+ConvNeXt-V2-198M 85.8 19.1
+ConvNeXt-V1-198M 84.3 10.6
+Table 7: Effects of pretraining and regular-
+ization on UA2.We compare the unforeseen
+robustness of ConvNext-V1 and ConvNext-V2
+models of equivalent sizes, finding ConvNext-
+V2 models improve over their V1 versions.
+subset of ImageNet -UA, where this technique outperforms the best Lptrained baselines ( 22.6→26.2, full
+results in Appendix H).
+Regularizing high-level features. We evaluate Variational Regularization (VR) (Dai et al., 2022), which
+adds a penalty term to the loss function for variance in higher level features. We find that the largest gains
+in unforeseen robustness come from combining VR with PAT, improving over standard PAT ( 26.2→29.5,
+on a 100 class subset of ImageNet -UA, full results in Appendix H).
+5.3 H OW HAS PROGRESS ON CV BENCHMARKS TRACKED UNFORESEEN ROBUSTNESS ?
+Computer vision progress has partially tracked unforeseen robustness. Comparing the UA2 of ResNet-
+50 to ConvNeXt-V2-huge ( 1%→19.1%UA2) demonstrates the effects of almost a decade of CV ad-
+vances, including self-supervised pretraining, hardware improvements, data augmentations, architectural
+changes and new regularization techniques. More generally, we find a range of modern architectures and
+training strategies doing well (see Section 4.3, full results in Figure 7). This is gives a positive view of how
+progress on standard CV benchmarks has tracked underlying robustness metrics, contrasting with classical
+Lpadversarial robustness where standard training techniques have little effect (Madry et al., 2017a).
+Scale, data augmentation and pretraining improve robustness. We do a more careful analysis of how
+three of the most effective CV techniques have improved robustness. As shown in Section 5.2, we find that
+data augmentation improves on unforeseen robustness, even in cases where they reduce standard accuracy.
+We also compare the performance of ConvNeXt-V1 and ConvNeXt-V2 models, which differ through the
+introduction of self-supervised pretraining and a new normalization layer. When controlling for model
+capacity these methods demonstrate large increase unforeseen robustness (see Section 5.2). We also note
+that DINOv2, the best performing model on our benchmark, is the product of self-supervised pretraining at
+a large scale.
+6 C ONCLUSION
+In this paper, we introduced a new benchmark for unforeseen adversaries (ImageNet -UA) laying ground-
+work for future research in improving real world adversarial robustness. We provide nineteen (eighteen
+novel) non- Lpattacks as part of our repository, using these to construct a new metric UA2 (Unforeseen Ad-
+versarial Accuracy). We then make use use this standardized benchmark to evaluate classical Lptraining
+techniques, showing that the common practice of L∞training and evaluation may be misleading, as L2
+shows higher unforeseen robustness. We additionally demonstrate that a variety of interventions outside
+ofLpadversarial training can improve unforeseen robustness, both through existing techniques in the CV
+literature and through specialised training strategies. We hope that the ImageNet -UArobustness framework
+will help guide adversarial robustness research, such that we continue making meaningful progress towards
+making machine learning safer for use in real-world systems.
+9REFERENCES
+Anish Athalye, Nicholas Carlini, and David Wagner. Obfuscated gradients give a false sense of security:
+Circumventing defenses to adversarial examples. In International conference on machine learning , pp.
+274–283. PMLR, 2018.
+Tom B. Brown, Dandelion Man ´e, Aurko Roy, Mart ´ın Abadi, and Justin Gilmer. Adversarial patch. CoRR ,
+abs/1712.09665, 2017. URL http://arxiv.org/abs/1712.09665 .
+John Canny. A computational approach to edge detection. IEEE Transactions on pattern analysis and
+machine intelligence , (6):679–698, 1986.
+Nicholas Carlini, Anish Athalye, Nicolas Papernot, Wieland Brendel, Jonas Rauber, Dimitris Tsipras, Ian J.
+Goodfellow, Aleksander Madry, and Alexey Kurakin. On evaluating adversarial robustness. CoRR ,
+abs/1902.06705, 2019. URL http://arxiv.org/abs/1902.06705 .
+Francesco Croce and Matthias Hein. Reliable evaluation of adversarial robustness with an ensemble of
+diverse parameter-free attacks. In International conference on machine learning , pp. 2206–2216. PMLR,
+2020.
+Francesco Croce and Matthias Hein. Adversarial robustness against multiple and single lp-threat models
+via quick fine-tuning of robust classifiers, 2022.
+Sihui Dai, Saeed Mahloujifar, and Prateek Mittal. Formulating robustness against unforeseen attacks. arXiv
+preprint arXiv:2204.13779 , 2022.
+Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. Imagenet: A large-scale hierarchical
+image database. In 2009 IEEE conference on computer vision and pattern recognition , pp. 248–255. Ieee,
+2009.
+Logan Engstrom, Brandon Tran, Dimitris Tsipras, Ludwig Schmidt, and Aleksander Madry. A rotation
+and a translation suffice: Fooling CNNs with simple transformations. arXiv preprint arXiv:1712.02779 ,
+2017.
+Alain Fournier, Don Fussell, and Loren Carpenter. Computer rendering of stochastic models. Commun.
+ACM , 25(6):371–384, June 1982. ISSN 0001-0782. doi: 10.1145/358523.358553. URL http://
+doi.acm.org/10.1145/358523.358553 .
+Justin Gilmer, Ryan P. Adams, Ian J. Goodfellow, David Andersen, and George E. Dahl. Motivating the
+rules of the game for adversarial example research. ArXiv , abs/1807.06732, 2018.
+Ian J. Goodfellow, Jonathon Shlens, and Christian Szegedy. Explaining and harnessing adversarial exam-
+ples, 2014. URL https://arxiv.org/abs/1412.6572 .
+Qing Guo, Felix Juefei-Xu, Xiaofei Xie, Lei Ma, Jian Wang, Bing Yu, Wei Feng, and Yang Liu. Watch out!
+motion is blurring the vision of your deep neural networks. In H. Larochelle, M. Ranzato, R. Hadsell,
+M.F. Balcan, and H. Lin (eds.), Advances in Neural Information Processing Systems , volume 33, pp.
+975–985. Curran Associates, Inc., 2020. URL https://proceedings.neurips.cc/paper_
+files/paper/2020/file/0a73de68f10e15626eb98701ecf03adb-Paper.pdf .
+Qing Guo, Ziyi Cheng, Felix Juefei-Xu, Lei Ma, Xiaofei Xie, Yang Liu, and Jianjun Zhao. Learning to
+adversarially blur visual object tracking. In Proceedings of the IEEE/CVF International Conference on
+Computer Vision , pp. 10839–10848, 2021.
+Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Doll ´ar, and Ross Girshick. Masked autoencoders
+are scalable vision learners. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition , pp. 16000–16009, 2022.
+Dan Hendrycks and Thomas Dietterich. Benchmarking neural network robustness to common corruptions
+and perturbations. In International Conference on Learning Representations , 2019.
+Dan Hendrycks and Thomas G Dietterich. Benchmarking neural network robustness to common corrup-
+tions and surface variations. arXiv preprint arXiv:1807.01697 , 2018.
+10Dan Hendrycks, Steven Basart, Norman Mu, Saurav Kadavath, Frank Wang, Evan Dorundo, Rahul Desai,
+Tyler Zhu, Samyak Parajuli, Mike Guo, et al. The many faces of robustness: A critical analysis of out-
+of-distribution generalization. In Proceedings of the IEEE/CVF International Conference on Computer
+Vision , pp. 8340–8349, 2021.
+Ares Lagae, Sylvain Lefebvre, George Drettakis, and Philip Dutr ´e. Procedural noise using sparse Gabor
+convolution. ACM Trans. Graph. , 28(3):54:1–54:10, July 2009. ISSN 0730-0301. doi: 10.1145/1531326.
+1531360. URL http://doi.acm.org/10.1145/1531326.1531360 .
+Cassidy Laidlaw and Soheil Feizi. Functional adversarial attacks. Advances in neural information process-
+ing systems , 32, 2019.
+Cassidy Laidlaw, Sahil Singla, and Soheil Feizi. Perceptual adversarial robustness: Defense against unseen
+threat models, 2020. URL https://arxiv.org/abs/2006.12655 .
+Wei-An Lin, Chun Pong Lau, Alexander Levine, Rama Chellappa, and Soheil Feizi. Dual manifold ad-
+versarial robustness: Defense against lp and non-lp adversarial attacks. Advances in Neural Information
+Processing Systems , 33:3487–3498, 2020.
+Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and Baining Guo. Swin
+transformer: Hierarchical vision transformer using shifted windows. In Proceedings of the IEEE/CVF
+international conference on computer vision , pp. 10012–10022, 2021.
+Zhuang Liu, Hanzi Mao, Chao-Yuan Wu, Christoph Feichtenhofer, Trevor Darrell, and Saining Xie. A
+convnet for the 2020s. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition , pp. 11976–11986, 2022.
+Divyam Madaan, Jinwoo Shin, and Sung Ju Hwang. Learning to generate noise for multi-attack robustness,
+2021a.
+Divyam Madaan, Jinwoo Shin, and Sung Ju Hwang. Learning to generate noise for multi-attack robustness.
+InInternational Conference on Machine Learning , pp. 7279–7289. PMLR, 2021b.
+Aleksander Madry, Aleksandar Makelov, Ludwig Schmidt, Dimitris Tsipras, and Adrian Vladu. Towards
+deep learning models resistant to adversarial attacks. arXiv preprint arXiv:1706.06083 , 2017a.
+Aleksander Madry, Aleksandar Makelov, Ludwig Schmidt, Dimitris Tsipras, and Adrian Vladu. Towards
+deep learning models resistant to adversarial attacks, 2017b. URL https://arxiv.org/abs/
+1706.06083 .
+Pratyush Maini, Eric Wong, and J. Zico Kolter. Adversarial robustness against the union of multiple per-
+turbation models, 2020.
+Karttikeya Mangalam, Haoqi Fan, Yanghao Li, Chao-Yuan Wu, Bo Xiong, Christoph Feichtenhofer, and Ji-
+tendra Malik. Reversible vision transformers. In Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition , pp. 10830–10840, 2022.
+Seyed-Mohsen Moosavi-Dezfooli, Alhussein Fawzi, and Pascal Frossard. DeepFool: a simple and accurate
+method to fool deep neural networks. arXiv preprint arXiv:1511.04599 , 2015.
+Maxime Oquab, Timoth ´ee Darcet, Th ´eo Moutakanni, Huy V o, Marc Szafraniec, Vasil Khalidov, Pierre
+Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al. Dinov2: Learning robust visual
+features without supervision. arXiv preprint arXiv:2304.07193 , 2023.
+Nicolas Papernot, Patrick McDaniel, Ian Goodfellow, Somesh Jha, Z Berkay Celik, and Ananthram Swami.
+Practical black-box attacks against machine learning. In Proceedings of the 2017 ACM on Asia confer-
+ence on computer and communications security , pp. 506–519. ACM, 2017.
+Ken Perlin. Making noise, 1999. URL http://www. noisemachine. com/talk1/index. html , 2005.
+Vinay Uday Prabhu. The blood diamond effect in neural art : On ethically troublesome images of the
+imagenet dataset. 2019.
+Haonan Qiu, Chaowei Xiao, Lei Yang, Xinchen Yan, Honglak Lee, and Bo Li. Semanticadv: Generating
+adversarial examples via attribute-conditional image editing. ArXiv , abs/1906.07927, 2019.
+11Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish
+Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning transferable visual models from
+natural language supervision. In International conference on machine learning , pp. 8748–8763. PMLR,
+2021.
+Leslie Rice, Eric Wong, and Zico Kolter. Overfitting in adversarially robust deep learning. In International
+Conference on Machine Learning , pp. 8093–8104. PMLR, 2020.
+Ali Shahin Shamsabadi, Changjae Oh, and Andrea Cavallaro. Semantically adversarial learnable filters.
+IEEE Transactions on Image Processing , 30:8075–8087, 2021.
+Richard Shin and Dawn Song. JPEG-resistant adversarial images. In NIPS 2017 Workshop on Machine
+Learning and Computer Security , 2017.
+Yang Song, Rui Shu, Nate Kushman, and Stefano Ermon. Constructing unrestricted adversarial examples
+with generative models. In NeurIPS , 2018.
+Andreas Peter Steiner, Alexander Kolesnikov, Xiaohua Zhai, Ross Wightman, Jakob Uszkoreit, and Lucas
+Beyer. How to train your vit? data, augmentation, and regularization in vision transformers. Transac-
+tions on Machine Learning Research , 2022. ISSN 2835-8856. URL https://openreview.net/
+forum?id=4nPswr1KcP .
+David Stutz, Matthias Hein, and Bernt Schiele. Confidence-calibrated adversarial training: Generalizing to
+unseen attacks. In International Conference on Machine Learning , pp. 9155–9166. PMLR, 2020.
+Christian Szegedy, Wojciech Zaremba, Ilya Sutskever, Joan Bruna, Dumitru Erhan, Ian Goodfellow, and
+Rob Fergus. Intriguing properties of neural networks. 12 2013.
+Florian Tramer and Dan Boneh. Adversarial training and robustness for multiple perturbations. Advances
+in neural information processing systems , 32, 2019.
+Florian Tram `er, Pascal Dupr ´e, Gili Rusak, Giancarlo Pellegrino, and Dan Boneh. Ad-versarial: Defeat-
+ing perceptual ad-blocking. CoRR , abs/1811.03194, 2018. URL http://arxiv.org/abs/1811.
+03194 .
+Zekai Wang, Tianyu Pang, Chao Du, Min Lin, Weiwei Liu, and Shuicheng Yan. Better diffusion models
+further improve adversarial training, 2023.
+Tsui-Wei Weng, Huan Zhang, Pin-Yu Chen, Jinfeng Yi, Dong Su, Yupeng Gao, Cho-Jui Hsieh, and Luca
+Daniel. Evaluating the robustness of neural networks: An extreme value theory approach. arXiv preprint
+arXiv:1801.10578 , 2018.
+Sanghyun Woo, Shoubhik Debnath, Ronghang Hu, Xinlei Chen, Zhuang Liu, In So Kweon, and Sain-
+ing Xie. Convnext v2: Co-designing and scaling convnets with masked autoencoders. arXiv preprint
+arXiv:2301.00808 , 2023.
+Chaowei Xiao, Jun-Yan Zhu, Bo Li, Warren He, Mingyan Liu, and Dawn Song. Spatially transformed
+adversarial examples. In Proceedings of (ICLR) International Conference on Learning Representations ,
+April 2018.
+Yaodong Yu, Zitong Yang, Edgar Dobriban, Jacob Steinhardt, and Yi Ma. Understanding generalization in
+adversarial training via the bias-variance decomposition. arXiv preprint arXiv:2103.09947 , 2021.
+Hongyang Zhang, Yaodong Yu, Jiantao Jiao, Eric Xing, Laurent El Ghaoui, and Michael Jordan. The-
+oretically principled trade-off between robustness and accuracy. In Kamalika Chaudhuri and Ruslan
+Salakhutdinov (eds.), Proceedings of the 36th International Conference on Machine Learning , volume 97
+ofProceedings of Machine Learning Research , pp. 7472–7482, Long Beach, California, USA, 09–15 Jun
+2019. PMLR. URL http://proceedings.mlr.press/v97/zhang19p.html .
+Zhengyu Zhao, Zhuoran Liu, and Marisa Larson. Towards large yet imperceptible adversarial image per-
+turbations with perceptual color distance. ArXiv , abs/1911.02466, 2019.
+12A H YPERPARAMETERS
+A.1 T RAINED MODELS
+To run our evaluations, we train a range of our own models to benchmark with:
+• CIFAR-10 WRN-28-10 robust models and TRADES models are respectively trained with the of-
+ficial code of Rice et al. (2020) and Zhang et al. (2019) with the default hyperparameters settings
+• The PAT-VR models on ImageNet100 were trained using the official code from Dai et al. (2022)
+and employed the hyperparameter settings outlined in the code of Laidlaw et al. (2020).
+• ImageNet100 DINOv2 Oquab et al. (2023) models are trained by finetuning a linear classification
+head on the ImageNet100 dataset. We used a SGD optimizer with learning rate of 0.001 and
+employed early-stopping.
+A.2 M ODEL REFERENCE
+We use a range of baseline models provided by other works, with model weights available as part of their
+open source distribution:
+•ImageNet
+–ConvNeXt models are from Liu et al. (2022)
+–ConvNeXt-V2 models are from Woo et al. (2023)
+–ViT models are from Steiner et al. (2022)
+–Swin models are from Liu et al. (2021)
+–Reversible-ViT models are from Mangalam et al. (2022)
+–CLIP (ViT-L/14) is from Radford et al. (2021)
+–DINOv2 models are from Oquab et al. (2023)
+–MAE models are from He et al. (2022)
+•CIFAR-10
+–WideResNet TRADES models are from Zhang et al. (2019)
+–WRN + Diffusion models are from Wang et al. (2023)
+–Meta noise models are from Madaan et al. (2021b)
+–ResNet50 VR models are from Dai et al. (2022)
+–ReColorAdv models are from Laidlaw & Feizi (2019)
+–StAdv modesl are from Xiao et al. (2018)
+–Multi attack models are from Tram `er et al. (2018)
+–The Multi steepest descent model is from Maini et al. (2020)
+–PAT models are from Laidlaw et al. (2020)
+–Pre-trained ResNet18 L∞,L2andL1models are from Croce & Hein (2022)
+•ImageNet100
+–ResNet50 PAT models are from Laidlaw et al. (2020)
+–ResNet50 PAT + VR models are from Dai et al. (2022)
+–DINOv2 models are from Oquab et al. (2023)
+A.3 A TTACK PARAMETERS
+To ensure that our attacks are maximally effective, we perform extensive hyper-parameter sweeps to find
+the most effective step sizes.
+13Step Size Num Steps Low Distortion Medium Distortion High Distortion Distance Metric
+Core AttacksPGD 0.004 50 2/255 4/255 8/255 L∞
+Gabor 0.0025 100 0.02 0.04 0.06 L∞
+Snow 0.1 100 10 15 25 L2
+Pixel 1 100 3 5 10 L2
+JPEG 0.0024 80 1/255 3/255 6/255 L∞
+Elastic 0.003 100 0.1 0.25 0.5 L2
+Wood 0.005 80 0.03 0.05 0.1 L∞
+Glitch 0.005 90 0.03 0.05 0.07 L∞
+Kaleidoscope 0.005 90 0.05 0.1 0.15 L∞
+Extra AttacksEdge 0.02 60 0.03 0.1 0.3 L∞
+FBM 0.006 30 0.03 0.06 0.3 L∞
+Fog 0.05 80 0.3 0.5 0.7 L∞
+HSV 0.012 50 0.01 0.03 0.05 L∞
+Klotski 0.01 50 0.03 0.1 0.2 L∞
+Mix 1.0 70 5 10 40 L2
+Pokadot 0.3 70 1 3 5 L2
+Prison 0.0015 30 0.01 0.03 0.1 L∞
+Blur 0.03 40 0.1 0.3 0.6 L∞
+Texture 0.00075 80 0.01 0.03 0.2 L∞
+Whirlpool 4.0 40 10 40 100 L2
+Table 8: Attack parameters for ImageNet -UA
+Step Size Num Steps Low Distortion Medium Distortion High Distortion Distance Metric
+Core AttacksPGD 0.008 50 2/255 4/255 8/255 L∞
+Gabor 0.0025 80 0.02 0.03 0.04 L∞
+Snow 0.2 20 3 4 5 L2
+Pixel 1.0 60 1 5 10 L2
+JPEG 0.0024 50 1/255 3/255 6/255 L∞
+Elastic 0.006 30 0.1 0.25 0.5 L2
+Wood 0.000625 70 0.03 0.05 0.1 L∞
+Glitch 0.0025 60 0.03 0.05 0.1 L∞
+Kaleidoscope 0.005 30 0.05 0.1 0.15 L∞
+Extra AttacksEdge 0.02 60 0.03 0.1 0.3 L∞
+FBM 0.006 30 0.02 0.04 0.08 L∞
+Fog 0.05 40 0.3 0.4 0.5 L∞
+HSV 0.003 20 0.01 0.02 0.03 L∞
+Klotski 0.005 50 0.03 0.05 0.1 L∞
+Mix 0.5 30 1 5 10 L2
+Pokadot 0.3 40 1 2 3 L2
+Prison 0.0015 20 0.01 0.03 0.1 L∞
+Blur 0.015 20 0.1 0.3 0.6 L∞
+Texture 0.003 30 0.01 0.1 0.2 L∞
+Whirlpool 16.0 50 20 100 200 L2
+Table 9: Attack parameters for CIFAR -10-UA
+B D ESCRIPTIONS OF THE 11 A DDITIONAL ATTACKS .
+Blur. Blur approximates real-world motion blur effects by passing a Gaussian filter over the original
+image and then does a pixel-wise linear interpolation between the blurred version and the original, with the
+optimisation variables controlling the level of interpolation. We also apply a Gaussian filter to the grid of
+optimisation variables, to enforce some continuity in the strength of the blur between adjacent pixels. This
+method is distinct from, but related to other blurring attacks in the literature (Guo et al., 2020; 2021).
+Edge. This attack functions by applying a Canny Edge Detector (Canny, 1986) over the image to locate
+pixels at the edge of objects, and then applies a standard PGD attack to the identified edge pixels.
+Fractional Brownian Motion (FBM). FBM overlays several layers of Perlin noise (Perlin, 2005) at
+different frequencies, creating a distinctive noise pattern. The underlying gradient vectors which generate
+each instance of the Perlin noise are then optimised by the attack.
+Fog. Fog simulates worst-case weather conditions, creating fog-like occlusions by adversarially optimiz-
+ing parameters in the diamond-square algorithm (Fournier et al., 1982) typically used to render stochastic
+fog effects.
+14HSV . This attack transforms the image into the HSV color space, and then optimises PGD in that latent
+space. Due to improving optimisation properties, a gaussian filter is passed over the image.
+Klotski. The Klotski attack works by splitting the image into blocks, and applying a differentiable
+translation to each block, which is then optimised.
+Mix. The Mix attack functions by performing differntiable pixel-wise interpolation between the original
+image and an image of a different class. The level of interpolation at each pixel is optimised, and a gaussian
+filter is passed over the pixel interpolation matrix to ensure that the interpolation is locally smooth.
+Polkadot. Polkadot randomly selects points on the image to be the centers of a randomly coloured circle,
+and then optimising the size of these circles in a differentiable manner.
+Prison. Prison places grey ”prison bars” across the image, optimising only the images within the prison
+bars. This attack is inspired by previous “patch” attacks (Brown et al., 2017), while ensuring that only the
+prison bars are optimised.
+Texture. Texture works by removing texture information within an images, passing a Canny Edge De-
+tector (Canny, 1986) over the image to find all the pixels which are at the edges of objects, and then filling
+these pixels in black—creating a silhouette of the original image. The other non-edge (or ”texture”) pix-
+els are then whitened, losing the textural information of the image while preserving the shape. Per-pixel
+optimisation variable control the level of whitening.
+Whirlpool. Whirlpool translates individual pixels in the image by a differentiable function creating a
+whirlpool-like warpings of the image, optimising the strength of each individual whirlpool.
+15C A TTACK COMPUTATION TIME
+We investigate the execution times of our attacks, finding that most attacks are not significantly slower than
+an equivalent PGD adversary.
+PGD JPEGElasticWood Glitch
+KaleidoscopePixel Snow GaborEdge FBM Fog HSV
+KlotskiMix
+PokadotPrisonBlur
+T extureWhirlpool0.00.51.01.52.02.53.0Computation time (hours)
+Figure 5: Evaluation time of the attacks on the ImageNet test set using a ResNet50 model with batch size
+of 200 on a single A100-80GB GPU, Attack hyper-parameters are as described in Appendix A.
+16D F ULL RESULTS OF MODEL EVALUATIONS
+We benchmark a large variety of models on our dataset, finding a rich space of interventions affecting
+unforeseen robustness.
+D.1 I MAGE NET
+0 100ResNet50ResNet50 + ANTResNet50 + RandAugResNet50 + Stylised ImageNetViT-tiny Patch16 ImageNet1K+22KViT-small Patch32 ImageNet1K+22KResNet50 + DeepaugmentResNet50 + MixupResNet50 + AugMixViT-base Patch32 ImageNet1K+22KResNet50 + L2 0.1ResNet50 + DeepAug+AugMixResNet50 + CutMixResNet50 + PixMixViT-base Patch32 ImageNet1KResNet50 + MoexConvNeXt-V2-femto ImageNet1KConvNeXt-V2-atto ImageNet1KViT-small Patch16 ImageNet1K+22KViT-small Patch16 ImageNet1KCLIP (ViT-L/14)ConvNeXt-tiny ImageNet1K+22KConvNeXt-V2-pico ImageNet1KReversible-ViT-smallViT-base Patch16 ImageNet1KSwin-tiny ImageNet1KConvNeXt-tiny ImageNet1KConvNeXt-V2-nano ImageNet1K+22KReversible-ViT-baseConvNeXt-V2-nano ImageNet1KConvNeXt-small ImageNet1KResNet50 + L 0.5/255
+Reversible-ViT-base multiscaleViT-base Patch16 ImageNet1K+22KResNet50 + L2 0.5ConvNeXt-V2-tiny ImageNet1KConvNeXt-small ImageNet1K+22KMAE ViT-base Patch16ConvNeXt-base ImageNet1KSwin-small ImageNet1KResNet50 + L 1/255
+ConvNeXt-V2-tiny ImageNet1K+22KResNet50 + L 8/255
+ResNet50 + L 4/255
+ConvNeXt-base ImageNet1K+22KResNet50 + L2 1ResNet50 + L 2/255
+ConvNeXt-large ImageNet1KConvNeXt-V2-base ImageNet1KViT-large Patch16 ImageNet1K+22KViT-base Patch8 ImageNet1K+22KResNet50 + L2 5Swin-base ImageNet1KMAE ViT-large Patch16ResNet50 + L2 3DINOv2 ViT-base Patch14ConvNeXt-large ImageNet1K+22KConvNeXt-xlarge ImageNet1K+22KSwin-large ImageNet1KConvNeXt-V2-large ImageNet1KConvNeXt-V2-base ImageNet1K+22KConvNeXt-V2-huge ImageNet1KConvNeXt-V2-large ImageNet1K+22KSwin-small ImageNet1K + L 4/255
+ConvNeXt-small + L 4/255
+ViT-small Patch16 + L 4/255
+Swin-base ImageNet1K + L 4/255
+DINOv2 ViT-large Patch14ConvNeXt-base + L 4/255
+ViT-base Patch16 + L 4/255
+76.176.177.676.775.576.076.777.577.580.774.875.878.678.174.979.078.576.781.478.875.582.980.379.879.281.482.182.081.781.883.173.782.784.573.282.984.683.883.883.272.083.954.563.985.870.469.184.384.985.885.856.185.386.062.884.386.687.086.385.886.886.387.373.474.172.875.086.176.176.8Clean acc
+0 50 1000.00.10.10.00.00.20.20.10.10.44.60.22.10.01.61.50.00.10.10.21.00.20.11.20.40.00.10.12.90.50.232.20.50.230.70.20.10.00.30.944.60.146.852.20.142.051.20.40.31.40.145.51.91.148.312.00.10.11.70.70.30.60.563.465.563.564.916.768.168.3PGD (2/255)
+0 50 1006.97.27.67.87.98.49.511.711.812.813.313.413.413.713.813.914.114.615.315.816.718.418.518.518.719.619.620.021.021.322.022.422.622.822.923.123.323.824.224.524.624.625.226.126.326.326.426.626.926.928.528.628.729.229.430.631.332.833.033.034.036.237.838.840.941.741.943.443.846.8UA2
+0 50 1000.00.20.10.10.22.21.20.40.34.016.71.52.80.112.52.30.10.40.41.61.80.30.44.94.60.20.30.18.21.30.644.71.71.448.90.60.20.30.92.242.90.334.938.20.355.640.71.41.37.80.451.23.23.855.812.20.30.33.42.20.92.01.464.867.766.465.417.367.670.8JPEG
+0 50 10019.616.222.522.110.911.320.527.929.616.924.930.335.936.320.837.826.823.821.123.637.433.333.132.426.837.742.433.537.938.145.031.044.531.130.139.641.541.947.343.433.038.530.433.143.432.933.651.947.837.845.631.752.052.633.546.047.350.855.954.250.458.055.046.550.649.850.861.353.155.5Elastic
+0 50 10015.611.515.716.912.011.312.721.422.916.717.217.724.029.717.626.825.423.319.824.120.128.227.621.727.631.429.730.819.432.834.126.127.628.222.834.733.427.834.836.430.534.630.434.437.726.634.538.426.731.239.729.238.039.730.536.341.842.541.033.741.135.046.649.952.651.553.652.255.156.9Wood
+0 50 1000.91.10.81.40.81.31.42.82.13.12.42.24.51.72.23.86.013.82.31.710.77.99.63.02.18.76.012.34.59.27.94.86.05.46.511.014.06.111.412.07.416.423.716.215.610.311.810.917.16.06.723.022.714.419.214.123.121.923.422.425.434.330.218.019.622.420.424.525.128.1Glitch
+0 50 1000.10.10.20.17.15.30.20.20.113.20.40.50.30.34.20.64.42.827.721.817.78.412.525.524.118.08.312.625.516.89.50.731.143.90.720.711.037.714.424.70.822.81.00.614.60.50.621.735.648.150.70.518.315.60.454.625.426.835.444.042.555.544.66.32.210.510.768.43.611.6Kaleidoscope
+0 50 1002.72.73.83.42.82.24.07.35.84.75.47.411.85.74.811.18.013.56.38.16.212.215.715.011.712.415.415.417.917.918.510.017.612.212.319.516.220.620.216.512.619.918.116.520.916.415.120.418.917.216.526.019.233.223.716.626.029.421.330.327.625.732.925.728.727.828.531.532.933.2Pixel
+0 50 1008.910.07.89.724.426.211.510.721.532.031.521.016.310.735.016.231.531.330.534.115.137.635.728.138.928.535.238.529.036.336.351.426.236.650.533.541.132.837.528.955.741.447.555.046.454.657.237.436.230.131.248.328.737.853.438.348.550.033.039.948.638.652.567.669.467.769.347.871.572.0Snow
+0 50 1007.215.39.99.24.77.124.722.512.312.28.026.812.124.913.312.810.28.114.111.524.819.313.917.713.819.419.917.025.317.924.410.726.423.911.725.028.823.327.131.913.722.615.815.131.413.517.630.731.637.037.518.947.736.518.327.038.340.550.437.435.840.838.931.736.537.536.144.541.746.1Gabor
+Figure 6: ImageNet UA2 performance under low distortion.
+170 100ViT-tiny Patch16 ImageNet1K+22KViT-small Patch32 ImageNet1K+22KResNet50ResNet50 + ANTResNet50 + RandAugResNet50 + L2 0.1ResNet50 + Stylised ImageNetViT-base Patch32 ImageNet1KViT-base Patch32 ImageNet1K+22KResNet50 + AugMixResNet50 + DeepaugmentViT-small Patch16 ImageNet1K+22KResNet50 + L 0.5/255
+ResNet50 + DeepAug+AugMixResNet50 + L2 0.5ViT-small Patch16 ImageNet1KConvNeXt-V2-femto ImageNet1KResNet50 + MixupResNet50 + L 1/255
+ViT-base Patch16 ImageNet1KConvNeXt-V2-atto ImageNet1KResNet50 + PixMixResNet50 + MoexResNet50 + CutMixReversible-ViT-smallResNet50 + L 2/255
+ConvNeXt-V2-pico ImageNet1KResNet50 + L2 1ConvNeXt-tiny ImageNet1K+22KReversible-ViT-baseSwin-tiny ImageNet1KConvNeXt-tiny ImageNet1KConvNeXt-V2-nano ImageNet1K+22KViT-base Patch16 ImageNet1K+22KCLIP (ViT-L/14)ResNet50 + L 4/255
+ConvNeXt-V2-nano ImageNet1KReversible-ViT-base multiscaleConvNeXt-small ImageNet1KMAE ViT-base Patch16ConvNeXt-small ImageNet1K+22KConvNeXt-V2-tiny ImageNet1KConvNeXt-base ImageNet1KConvNeXt-V2-tiny ImageNet1K+22KResNet50 + L 8/255
+Swin-small ImageNet1KConvNeXt-V2-base ImageNet1KConvNeXt-large ImageNet1KViT-large Patch16 ImageNet1K+22KConvNeXt-base ImageNet1K+22KResNet50 + L2 3ViT-base Patch8 ImageNet1K+22KMAE ViT-large Patch16ConvNeXt-large ImageNet1K+22KResNet50 + L2 5ConvNeXt-V2-large ImageNet1KSwin-base ImageNet1KConvNeXt-xlarge ImageNet1K+22KConvNeXt-V2-base ImageNet1K+22KDINOv2 ViT-base Patch14Swin-large ImageNet1KConvNeXt-V2-huge ImageNet1KSwin-small ImageNet1K + L 4/255
+ConvNeXt-V2-large ImageNet1K+22KSwin-base ImageNet1K + L 4/255
+ConvNeXt-small + L 4/255
+ViT-small Patch16 + L 4/255
+ConvNeXt-base + L 4/255
+ViT-base Patch16 + L 4/255
+DINOv2 ViT-large Patch14
+75.576.076.176.177.774.876.774.980.777.576.781.473.775.873.278.878.577.572.079.276.778.179.078.679.869.180.370.482.981.781.482.182.084.575.563.981.882.783.183.884.682.983.883.954.583.284.984.385.885.862.885.886.086.656.185.885.387.086.884.386.386.373.487.375.074.172.876.176.886.1Clean acc
+0 50 1000.00.00.00.00.00.10.00.00.00.00.00.06.50.05.50.00.00.018.10.00.00.00.50.50.030.80.015.10.00.00.00.00.00.00.339.00.00.00.00.00.00.00.00.038.90.00.00.00.10.031.70.00.00.034.10.00.00.00.011.40.00.050.70.051.854.451.658.057.115.3PGD (4/255)
+0 50 1001.11.31.61.62.02.12.12.62.63.03.53.63.93.94.04.14.44.85.05.25.55.86.16.16.26.46.46.76.86.86.97.27.47.77.87.98.08.48.48.79.39.39.69.810.010.310.911.011.011.012.212.613.813.913.914.615.015.016.016.416.617.718.419.220.220.721.522.325.827.7UA2
+0 50 1000.00.00.00.00.00.10.00.10.00.00.00.03.40.06.70.00.00.03.00.00.00.00.20.20.02.90.019.60.00.00.00.00.00.00.23.00.00.00.00.00.00.00.00.06.90.00.00.00.00.038.60.00.00.039.70.00.00.00.010.70.00.036.70.034.645.846.539.052.614.3JPEG
+0 50 1002.52.74.42.96.05.86.25.94.97.75.17.07.95.97.18.012.210.99.49.612.014.018.817.915.99.916.98.417.617.119.923.417.312.920.411.320.922.625.124.923.223.028.721.811.825.131.332.816.626.210.825.237.529.311.939.231.433.533.926.635.242.518.939.123.420.521.223.826.342.6Elastic
+0 50 1004.33.96.34.16.57.87.57.46.911.65.68.414.58.011.612.214.711.818.814.715.016.617.515.513.523.817.114.818.210.818.918.519.914.212.125.421.016.721.815.222.121.722.423.423.923.315.824.617.126.319.224.125.129.719.421.824.630.328.623.726.621.241.634.445.644.342.147.947.239.7Wood
+0 50 1000.30.40.40.40.30.90.60.71.30.90.50.91.80.82.50.73.21.43.00.79.30.62.02.51.45.35.54.14.12.24.92.87.82.46.68.55.13.13.93.18.26.66.010.314.47.210.35.42.88.88.93.28.514.912.214.014.613.917.09.914.323.88.521.410.18.610.412.413.817.7Glitch
+0 50 1000.60.60.00.00.00.00.00.72.20.00.05.20.20.10.25.20.20.00.37.90.40.00.10.15.70.21.70.10.84.31.50.61.816.34.60.33.18.41.07.51.23.62.34.30.74.88.94.721.91.90.220.21.74.80.311.46.04.513.426.211.624.34.216.17.31.47.32.58.146.2Kaleidoscope
+0 50 1000.30.20.30.40.70.70.80.60.70.90.71.11.30.81.62.31.33.71.82.94.71.25.76.75.52.54.72.63.26.82.63.44.63.22.23.26.45.64.17.04.06.14.37.45.24.43.24.15.26.26.34.914.18.99.77.86.911.111.410.06.96.66.515.58.37.57.99.711.917.2Pixel
+0 50 1000.10.10.10.10.10.10.10.40.20.20.10.10.80.10.80.50.41.42.00.80.70.22.23.00.74.60.82.61.21.20.40.71.10.51.710.41.31.00.70.40.91.00.81.615.62.11.11.00.71.511.21.32.42.015.41.84.32.22.610.44.60.723.04.021.928.226.730.227.114.2Snow
+0 50 1001.22.50.95.22.11.22.04.85.02.715.66.01.215.91.53.83.38.81.25.32.213.92.22.77.11.94.61.48.812.07.08.26.612.314.11.16.310.010.911.714.812.612.39.91.215.816.415.223.617.12.322.021.421.42.520.832.024.420.913.833.322.27.323.110.39.29.712.819.529.9GaborFigure 7: ImageNet UA2 performance under medium distortion
+180 100ViT-tiny Patch16 ImageNet1K+22KResNet50ViT-small Patch32 ImageNet1K+22KResNet50 + RandAugResNet50 + L2 0.1ResNet50 + ANTResNet50 + Stylised ImageNetResNet50 + L2 0.5ResNet50 + AugMixViT-base Patch32 ImageNet1KResNet50 + L 0.5/255
+ViT-base Patch32 ImageNet1K+22KViT-small Patch16 ImageNet1K+22KResNet50 + L2 1ViT-small Patch16 ImageNet1KResNet50 + L 1/255
+ConvNeXt-V2-femto ImageNet1KViT-base Patch16 ImageNet1KResNet50 + L 2/255
+ResNet50 + DeepaugmentResNet50 + MixupResNet50 + DeepAug+AugMixResNet50 + L 4/255
+ConvNeXt-V2-atto ImageNet1KConvNeXt-V2-pico ImageNet1KReversible-ViT-smallResNet50 + CutMixReversible-ViT-baseResNet50 + MoexResNet50 + PixMixSwin-tiny ImageNet1KConvNeXt-tiny ImageNet1KConvNeXt-tiny ImageNet1K+22KViT-base Patch16 ImageNet1K+22KReversible-ViT-base multiscaleConvNeXt-V2-nano ImageNet1K+22KConvNeXt-V2-nano ImageNet1KResNet50 + L 8/255
+ResNet50 + L2 3ConvNeXt-small ImageNet1KMAE ViT-base Patch16ConvNeXt-V2-tiny ImageNet1KCLIP (ViT-L/14)ConvNeXt-base ImageNet1KConvNeXt-small ImageNet1K+22KConvNeXt-V2-tiny ImageNet1K+22KResNet50 + L2 5Swin-small ImageNet1KConvNeXt-large ImageNet1KViT-large Patch16 ImageNet1K+22KConvNeXt-V2-base ImageNet1KConvNeXt-base ImageNet1K+22KSwin-small ImageNet1K + L 4/255
+ViT-base Patch8 ImageNet1K+22KConvNeXt-small + L 4/255
+Swin-base ImageNet1K + L 4/255
+ConvNeXt-large ImageNet1K+22KViT-small Patch16 + L 4/255
+ConvNeXt-base + L 4/255
+MAE ViT-large Patch16ConvNeXt-V2-large ImageNet1KConvNeXt-xlarge ImageNet1K+22KConvNeXt-V2-base ImageNet1K+22KSwin-base ImageNet1KConvNeXt-V2-huge ImageNet1KSwin-large ImageNet1KViT-base Patch16 + L 4/255
+DINOv2 ViT-base Patch14ConvNeXt-V2-large ImageNet1K+22KDINOv2 ViT-large Patch14
+75.576.176.077.674.876.176.773.277.574.973.780.781.470.478.872.078.579.269.176.777.575.863.976.780.379.878.681.779.078.181.482.182.984.582.782.081.854.562.883.183.882.975.583.884.683.956.183.284.385.884.985.873.485.874.175.086.672.876.186.085.887.086.885.386.386.376.884.387.386.1Clean acc
+0 50 1000.00.00.00.00.00.00.00.10.00.00.10.00.00.90.01.70.00.07.10.00.00.016.30.00.00.00.10.00.10.00.00.00.00.00.00.00.023.98.40.00.00.00.20.00.00.013.80.00.00.00.00.025.20.030.125.00.026.834.50.00.00.00.00.00.00.032.411.00.014.4PGD (8/255)
+0 50 1000.20.30.40.40.40.50.60.70.80.80.81.01.11.21.21.21.51.61.82.02.02.02.42.42.52.52.72.72.72.82.92.93.03.03.13.23.23.23.53.63.74.14.34.44.54.64.94.95.15.25.25.55.65.76.47.07.17.17.17.37.68.08.48.59.09.39.910.110.519.2UA2
+0 50 1000.00.00.00.00.00.00.00.10.00.00.00.00.01.40.00.10.00.00.00.00.00.00.10.00.00.00.00.00.00.00.00.00.00.00.00.00.00.313.80.00.00.00.10.00.00.020.40.00.00.00.00.06.60.012.06.70.013.57.00.00.00.00.00.00.00.019.610.10.013.1JPEG
+0 50 1000.60.70.80.80.70.41.10.70.91.50.91.82.00.82.51.23.83.51.30.83.20.41.94.46.66.35.55.66.33.68.49.57.05.27.77.18.22.01.210.412.210.58.813.89.89.91.611.715.76.715.312.73.711.63.45.414.03.94.722.222.618.017.615.325.918.56.110.621.623.5Elastic
+0 50 1000.41.20.51.51.80.72.13.13.31.24.21.41.74.33.46.24.83.59.21.56.21.810.86.87.26.89.44.810.87.27.36.87.63.97.08.28.812.27.18.25.38.36.78.29.710.98.211.09.16.46.712.424.69.427.228.614.724.530.912.110.814.914.713.48.913.828.913.118.725.4Wood
+0 50 1000.20.20.30.20.60.30.41.40.60.41.10.80.52.40.41.92.10.43.40.30.80.55.76.53.80.91.61.41.20.43.51.82.61.51.95.73.510.25.32.82.04.54.94.15.67.57.55.23.81.77.56.05.22.04.76.311.06.07.36.010.210.212.810.717.910.27.77.716.714.7Glitch
+0 50 1000.00.00.10.00.00.00.00.10.00.10.00.30.60.00.60.10.01.70.10.00.00.00.20.10.41.70.11.10.10.00.20.10.13.42.00.30.90.40.10.31.01.02.40.70.20.90.21.61.36.82.30.22.64.60.94.80.84.81.60.73.10.63.92.64.65.25.512.45.329.4Kaleidoscope
+0 50 1000.00.10.00.10.10.10.10.10.10.00.00.10.10.10.50.10.10.20.10.11.00.00.20.50.20.63.01.42.30.20.30.10.50.41.30.50.80.40.40.41.20.50.70.40.31.40.80.70.30.80.20.70.21.10.20.31.20.20.32.40.71.72.91.50.61.21.18.14.712.1Pixel
+0 50 1000.00.00.00.00.00.00.00.00.00.00.00.00.00.00.00.00.00.00.00.00.20.00.00.00.00.00.60.10.40.00.00.00.20.00.10.10.20.10.00.00.00.10.30.10.00.20.00.10.10.10.10.00.10.20.10.20.00.10.10.10.20.10.40.40.10.50.710.30.612.9Snow
+0 50 1000.50.21.80.80.42.30.70.41.03.20.33.74.10.32.20.21.53.30.313.04.313.10.21.02.24.01.17.20.711.23.34.95.79.34.93.63.00.20.56.68.28.110.37.710.15.90.59.110.519.59.912.12.116.72.83.914.83.44.715.113.518.215.323.913.724.99.98.816.422.7GaborFigure 8: ImageNet UA2 performance under high distortion
+19D.2 CIFAR-10
+0 100WRN-40-2 + MixupWRN-40-2 + StardardWRN-40-2 + CutmixWRN-28-10ResNet50WRN-40-2 + Uniform noiseWRN-40-2 + PixmixPreAct ResNet18 L1 pretrainedResNet18 + ReColorAdvWRN-40-2 + AugmixResNet18 + StAdv + VR 0.5ResNet18 + StAdvResNet18 + StAdv + VR 1.0RestNet50 + StAdvResNet18 + ReColorAdv + VR 0.5ResNet18 + ReColorAdv + VR 1.0WRN-28-10 + L2 0.25PreAct ResNet18 L pretrained
+WRN-28-10 + L2 1.0WRN-28-10 + L2 0.5ResNet50 + PAT 1.0 + VR 0.1WRN-28-10 + L 8/255 + VR 0.7
+ResNet50 + PAT 1.0 + VR 0.05ResNet18 + L 8/255 + VR 0.5
+RestNet50 + AlexNet-bounded PATPreAct ResNet18 L2 pretrainedRestNet50 + ReColorAdvRestNet50 + Multi attack (random)WRN-40-2 + L 8/255
+ResNet50 + L2 1.0RestNet50 + Self-bounded PATResNet50 + L2 0.25ResNet50 + L 8/255
+WRN-28-10 + L 8/255 (TRADES)
+WRN-28-10 + L 8/255
+ResNet50 + PAT 0.5WRN-28-10 + L 4/255 (TRADES)
+WRN-28-10 + L 4/255
+ResNet50 + PAT 0.5 + VR 0.05WRN-28-10 + L2 0.25 (TRADES)ResNet50 + PAT 0.5 + VR 0.1ResNet18 + L2 0.5 + VR 1.0ResNet50 + L2 0.5WRN-28-10 + Multi steepest descentWRN-34-10 + L 8/255 (TRADES)
+WRN-34-10 + L 8/255
+WRN-28-10 + L2 1.0 (TRADES)WRN-28-10 + Multi attack (average)WRN-28-10 + Multi attack (maximum)WRN-28-10 + L2 0.5 (TRADES)WRN-28-10 + Meta noiseRestNet50 + Multi attack (maximum)RestNet50 + Multi attack (average)WRN-28-10 + Meta noise + Robust self-trainingWRN-28-10 + L 8/255 + Diffusion model
+WRN-70-16 + L 8/255 + Diffusion model
+WRN-28-10 + L2 128/255 + Diffusion modelWRN-70-16 + L2 128/255 + Diffusion model
+94.894.695.795.894.794.395.181.594.995.082.986.880.685.794.094.095.382.995.595.671.572.771.472.971.187.293.081.883.379.082.192.085.584.386.585.789.391.986.391.784.885.289.682.784.986.182.385.884.387.681.583.585.988.992.493.395.295.5Clean acc
+0 1009.28.45.410.49.521.820.646.749.526.028.933.336.434.165.566.174.070.975.374.966.268.867.068.467.068.074.270.276.572.274.179.779.578.080.576.582.284.677.680.477.076.279.976.179.480.675.277.076.778.974.577.478.983.088.990.190.291.3PGD (2/255)
+0 10024.224.326.628.529.230.439.644.646.146.249.549.850.350.353.153.854.654.955.455.555.755.755.855.855.956.457.657.858.559.860.861.061.361.662.262.362.462.562.662.662.762.863.163.263.263.363.563.764.264.264.264.766.070.172.473.374.175.6UA2
+0 1005.08.35.213.312.525.014.749.063.533.951.152.456.954.175.175.378.666.779.679.668.066.068.466.268.675.179.473.573.974.876.783.077.475.077.979.879.182.180.583.879.479.683.477.076.478.178.379.978.282.277.171.979.584.786.187.391.892.6JPEG
+0 10032.733.138.243.547.246.554.050.665.867.576.281.274.980.271.770.973.363.673.774.059.756.962.155.562.064.074.868.166.166.265.675.071.670.170.370.575.275.571.774.971.064.670.968.071.870.067.767.970.071.268.077.777.876.081.983.584.185.8Elastic
+0 1002.11.12.92.61.72.57.927.38.117.959.961.952.865.319.320.621.826.522.223.044.839.043.638.648.635.230.150.339.751.947.235.445.642.042.448.338.138.644.643.843.949.748.756.744.044.158.056.457.253.561.561.258.261.553.955.461.363.0Wood
+0 10014.513.913.419.217.022.237.959.349.745.539.339.344.739.659.859.359.866.561.060.462.263.763.563.963.267.268.063.362.860.871.768.563.472.174.272.474.074.473.374.872.472.569.471.572.173.672.273.072.375.071.770.375.079.077.578.881.883.0Glitch
+0 10013.916.230.417.914.123.319.125.919.931.939.633.641.537.821.223.927.438.930.329.336.042.433.741.928.236.320.128.835.031.635.930.030.537.834.928.636.632.029.930.232.635.728.636.542.638.835.133.837.333.137.536.830.243.346.646.640.442.4Kaleidoscope
+0 10060.762.760.264.764.664.970.165.376.971.444.645.548.545.578.077.979.866.880.280.665.361.966.062.166.272.779.466.868.770.974.380.372.271.373.775.474.878.076.780.376.675.278.972.871.974.074.076.374.878.073.471.876.281.783.484.689.790.8Pixel
+0 10036.028.440.338.336.930.347.942.144.451.767.271.267.171.254.054.653.953.655.155.254.959.356.060.254.948.463.055.760.362.559.459.766.463.866.061.163.064.362.459.564.660.163.061.565.765.761.060.461.360.861.967.766.873.080.180.981.483.2Snow
+0 10028.530.422.428.739.628.265.137.640.949.418.013.015.98.946.147.642.156.440.842.154.456.352.858.255.452.046.356.161.560.055.456.063.760.558.562.158.755.261.453.661.064.662.061.761.261.961.761.662.259.463.160.564.061.969.369.862.663.8Gabor
+Figure 9: CIFAR-10 UA2 performance under low distortion.
+200 100WRN-40-2 + StardardWRN-40-2 + Uniform noiseWRN-40-2 + MixupResNet50WRN-28-10WRN-40-2 + CutmixResNet18 + ReColorAdvWRN-40-2 + PixmixWRN-40-2 + AugmixWRN-28-10 + L2 0.25ResNet18 + ReColorAdv + VR 0.5PreAct ResNet18 L1 pretrainedResNet18 + ReColorAdv + VR 1.0WRN-28-10 + L2 0.5WRN-28-10 + L2 1.0RestNet50 + ReColorAdvPreAct ResNet18 L2 pretrainedResNet18 + StAdvResNet50 + L2 0.25ResNet18 + StAdv + VR 0.5PreAct ResNet18 L pretrained
+RestNet50 + StAdvResNet18 + StAdv + VR 1.0WRN-28-10 + L 4/255
+WRN-28-10 + L2 0.25 (TRADES)WRN-40-2 + L 8/255
+RestNet50 + Multi attack (random)WRN-28-10 + L 4/255 (TRADES)
+ResNet50 + L2 0.5WRN-28-10 + L 8/255
+ResNet50 + PAT 0.5 + VR 0.05ResNet50 + L 8/255
+WRN-28-10 + L2 0.5 (TRADES)WRN-28-10 + L 8/255 + VR 0.7
+RestNet50 + AlexNet-bounded PATResNet50 + PAT 0.5WRN-28-10 + L 8/255 (TRADES)
+ResNet18 + L 8/255 + VR 0.5
+WRN-34-10 + L 8/255
+WRN-28-10 + Multi attack (average)RestNet50 + Self-bounded PATResNet18 + L2 0.5 + VR 1.0ResNet50 + PAT 1.0 + VR 0.05WRN-34-10 + L 8/255 (TRADES)
+ResNet50 + PAT 1.0 + VR 0.1ResNet50 + L2 1.0ResNet50 + PAT 0.5 + VR 0.1WRN-28-10 + Multi attack (maximum)WRN-28-10 + Multi steepest descentWRN-28-10 + L2 1.0 (TRADES)WRN-28-10 + Meta noiseRestNet50 + Multi attack (average)RestNet50 + Multi attack (maximum)WRN-28-10 + L2 128/255 + Diffusion modelWRN-28-10 + Meta noise + Robust self-trainingWRN-28-10 + L 8/255 + Diffusion model
+WRN-70-16 + L 8/255 + Diffusion model
+WRN-70-16 + L2 128/255 + Diffusion model
+94.694.394.894.795.895.794.995.195.095.394.081.594.095.695.593.087.286.892.082.982.985.780.691.991.783.381.889.389.686.586.385.587.672.771.185.784.372.986.185.882.185.271.484.971.579.084.884.382.782.381.585.983.595.288.992.493.395.5Clean acc
+0 1000.10.60.20.10.10.110.31.01.437.228.219.929.438.339.547.344.75.358.64.857.16.48.473.062.868.256.071.866.273.864.972.766.564.059.765.171.363.574.365.062.964.560.572.059.764.765.967.768.166.566.470.069.282.275.684.085.983.7PGD (4/255)
+0 1005.86.77.27.27.38.513.615.016.020.420.520.721.121.321.427.630.431.431.531.532.132.832.935.135.137.137.237.338.039.840.240.440.941.041.141.341.441.441.541.541.641.942.142.742.742.842.843.544.045.847.548.148.851.151.151.652.553.1UA2
+0 1000.00.00.00.00.00.07.50.00.420.523.212.524.122.524.038.940.86.449.18.329.69.714.543.157.246.252.244.064.747.362.652.665.046.159.263.948.047.251.062.659.463.959.749.959.064.863.462.261.667.166.167.257.978.473.061.762.180.1JPEG
+0 1000.41.90.41.20.84.211.22.09.321.421.515.021.823.223.630.229.071.836.565.832.769.464.744.242.339.349.747.640.247.044.348.845.041.543.844.849.340.945.342.442.838.046.350.145.146.548.045.946.749.149.466.368.861.456.565.167.465.1Elastic
+0 1000.92.01.91.42.22.86.86.715.219.317.124.718.220.319.727.331.760.031.858.224.563.751.135.640.037.248.035.445.439.941.842.950.437.146.845.439.536.641.453.044.947.441.841.342.949.341.453.753.855.658.855.859.557.858.951.252.759.4Wood
+0 1009.513.411.08.911.810.833.622.828.540.441.849.741.540.941.453.154.227.054.127.558.427.833.861.562.055.252.864.059.166.164.256.465.658.958.064.265.559.865.964.864.764.558.565.057.254.464.064.865.066.066.867.865.374.372.670.772.175.5Glitch
+0 1004.67.95.14.76.811.49.06.312.015.212.616.914.116.817.412.726.026.020.832.135.630.134.828.822.032.221.032.820.732.323.227.526.141.123.822.235.240.436.328.131.127.529.840.131.726.427.433.133.130.132.524.030.233.737.344.244.736.7Kaleidoscope
+0 1001.00.71.20.70.91.12.01.20.93.31.45.81.84.63.84.711.61.44.71.87.52.23.75.76.911.29.27.510.412.016.114.814.222.123.918.015.622.114.015.121.619.628.815.130.726.322.316.318.024.427.021.720.921.428.820.019.722.4Pixel
+0 10015.114.622.220.121.127.718.930.730.721.620.616.121.222.422.128.416.651.821.049.030.655.851.029.020.831.126.530.522.836.326.134.623.438.431.026.635.538.135.423.730.225.733.438.233.131.732.127.028.828.931.236.246.746.240.354.055.950.0Snow
+0 10014.913.215.620.715.29.719.550.231.121.425.724.826.420.119.125.233.16.533.89.437.63.49.332.929.944.038.336.740.537.643.345.237.743.042.645.142.546.242.442.637.848.738.941.942.142.643.545.044.745.348.445.441.235.441.045.745.335.6GaborFigure 10: CIFAR-10 UA2 performance under medium distortion
+210 100WRN-40-2 + StardardWRN-40-2 + Uniform noiseResNet50WRN-40-2 + MixupWRN-28-10WRN-40-2 + CutmixResNet18 + ReColorAdvResNet18 + ReColorAdv + VR 0.5WRN-28-10 + L2 0.25WRN-28-10 + L2 1.0ResNet18 + ReColorAdv + VR 1.0WRN-40-2 + AugmixWRN-28-10 + L2 0.5WRN-40-2 + PixmixPreAct ResNet18 L1 pretrainedRestNet50 + ReColorAdvResNet50 + L2 0.25PreAct ResNet18 L2 pretrainedWRN-28-10 + L2 0.25 (TRADES)WRN-28-10 + L 4/255
+PreAct ResNet18 L pretrained
+WRN-28-10 + L 4/255 (TRADES)
+ResNet50 + L2 0.5RestNet50 + Multi attack (random)WRN-40-2 + L 8/255
+ResNet18 + StAdv + VR 0.5ResNet18 + StAdvWRN-28-10 + L 8/255
+ResNet18 + StAdv + VR 1.0ResNet50 + PAT 0.5 + VR 0.05ResNet50 + L 8/255
+WRN-28-10 + L2 0.5 (TRADES)RestNet50 + StAdvWRN-34-10 + L 8/255
+WRN-28-10 + Multi attack (average)ResNet50 + PAT 0.5WRN-28-10 + L 8/255 (TRADES)
+RestNet50 + Self-bounded PATResNet50 + PAT 0.5 + VR 0.1WRN-34-10 + L 8/255 (TRADES)
+WRN-28-10 + Multi attack (maximum)ResNet18 + L2 0.5 + VR 1.0ResNet50 + L2 1.0RestNet50 + AlexNet-bounded PATWRN-28-10 + Multi steepest descentWRN-28-10 + L 8/255 + VR 0.7
+ResNet50 + PAT 1.0 + VR 0.05ResNet18 + L 8/255 + VR 0.5
+WRN-28-10 + L2 128/255 + Diffusion modelResNet50 + PAT 1.0 + VR 0.1WRN-70-16 + L2 128/255 + Diffusion modelWRN-28-10 + L2 1.0 (TRADES)WRN-28-10 + Meta noiseWRN-28-10 + L 8/255 + Diffusion model
+RestNet50 + Multi attack (average)WRN-70-16 + L 8/255 + Diffusion model
+WRN-28-10 + Meta noise + Robust self-trainingRestNet50 + Multi attack (maximum)
+94.694.394.794.895.895.794.994.095.395.594.095.095.695.181.593.092.087.291.791.982.989.389.681.883.382.986.886.580.686.385.587.685.786.185.885.784.382.184.884.984.385.279.071.182.772.771.472.995.271.595.582.381.592.485.993.388.983.5Clean acc
+0 1000.00.00.00.00.00.00.32.64.05.03.80.05.40.03.011.217.613.425.342.231.646.933.526.347.70.10.153.80.337.854.237.90.155.836.741.254.236.940.155.144.639.446.143.248.352.843.751.952.443.354.746.147.270.447.673.754.550.9PGD (8/255)
+0 1003.74.14.95.15.25.97.09.710.110.310.410.610.611.212.713.515.016.818.619.220.521.922.023.623.824.424.624.824.925.325.525.626.026.326.627.327.427.928.228.428.929.130.130.230.330.830.930.931.032.432.632.734.134.234.634.734.737.8UA2
+0 1000.00.00.00.00.00.00.22.31.81.83.90.02.30.01.66.77.39.016.87.45.59.528.019.711.80.40.210.31.133.416.033.60.513.331.338.114.731.935.314.632.639.245.740.735.019.841.419.540.442.141.846.545.420.243.219.446.841.0JPEG
+0 1000.00.00.00.00.00.50.10.20.20.50.10.10.60.00.50.51.72.65.25.95.311.15.119.710.445.752.413.346.110.516.29.851.612.88.812.417.112.314.917.612.19.516.717.414.720.020.519.714.822.815.818.218.726.139.226.919.548.0Elastic
+0 1000.92.01.41.92.22.86.817.119.319.718.215.220.36.724.727.331.731.740.035.524.535.445.448.037.258.260.039.951.141.843.050.463.741.453.045.439.544.941.441.353.747.449.446.853.837.141.636.657.842.959.455.658.851.155.852.758.959.5Wood
+0 1003.55.33.04.45.15.115.118.318.320.119.413.419.49.631.326.926.530.834.933.738.639.937.032.636.913.612.543.819.543.639.544.513.844.145.745.947.947.845.546.147.048.641.445.347.748.145.448.450.645.352.151.153.450.050.051.254.251.1Glitch
+0 1001.83.42.03.03.66.74.68.18.910.19.26.310.33.012.28.914.619.716.525.633.829.315.315.930.628.222.130.630.918.424.221.126.034.023.018.433.927.323.138.328.822.622.520.429.740.526.539.828.828.131.326.328.042.719.943.031.726.1Kaleidoscope
+0 1000.50.20.20.40.60.40.80.51.61.80.70.32.30.42.21.81.77.22.72.74.44.44.35.57.80.90.77.71.77.69.96.70.99.27.39.011.111.412.010.58.711.015.114.610.118.218.518.27.620.87.914.014.912.811.412.314.011.3Pixel
+0 10013.713.419.120.419.825.616.214.918.117.515.427.217.929.011.519.915.611.114.322.225.722.414.720.424.641.343.728.542.516.024.213.849.626.314.116.926.620.521.430.216.317.119.322.818.130.524.129.428.324.432.316.518.142.325.444.025.538.9Snow
+0 1009.28.513.610.510.45.912.416.612.410.816.422.012.041.317.916.121.222.418.420.625.923.426.226.931.36.64.824.76.030.831.324.82.329.129.832.328.527.431.728.232.437.130.833.933.032.329.335.920.032.919.933.835.828.531.727.827.026.9GaborFigure 11: CIFAR-10 UA2 performance under high distortion
+22D.3 I MAGE NET100
+0 100ResNet50ResNet50 + L2 150ResNet50 + Self-bounded PAT + VR 1.0ResNet50 + L 1
+ResNet50 + L2 300ResNet50 + L 32
+ResNet50 + Self-bounded PAT + VR 0.5ResNet50 + L 2
+ResNet50 + L2 600ResNet50 + L 16
+ResNet50 + L 4
+ResNet50 + L2 1200ResNet50 + L 8
+ResNet50 + Self-bounded PAT + VR 0.3ResNet50 + AlexNet-bounded PAT + VR 1.0ResNet50 + L2 4800ResNet50 + L2 2400ResNet50 + Self-bounded PAT + VR 0.1ResNet50 + AlexNet-bounded PATResNet50 + Self-bounded PATResNet50 + AlexNet-bounded PAT + VR 0.5ResNet50 + AlexNet-bounded PAT + VR 0.3ResNet50 + AlexNet-bounded PAT + VR 0.1DINOv2 ViT-base Patch14DINOv2 ViT-large Patch14
+88.786.649.186.485.971.257.485.684.774.484.182.379.764.662.168.376.868.975.071.669.369.973.797.597.9Clean acc
+0 500.011.127.523.128.457.144.443.945.963.058.756.864.553.354.156.760.357.963.361.460.961.964.734.342.3PGD (2/255)
+0 5013.224.625.829.230.431.134.735.036.037.439.340.540.841.241.441.442.844.245.545.646.247.148.962.674.6UA2
+0 500.737.432.551.154.926.549.764.166.349.070.871.365.458.958.563.870.163.269.866.765.665.969.934.743.7JPEG
+0 5034.144.130.147.345.737.838.748.448.043.650.848.848.444.847.742.247.247.350.246.352.453.054.780.189.9Elastic
+0 5018.223.428.128.728.037.934.335.332.444.339.936.545.039.039.338.339.541.741.938.645.546.548.068.282.4Wood
+0 502.06.118.97.48.936.426.411.814.931.015.323.221.937.036.538.633.140.836.943.341.641.943.340.656.2Glitch
+0 500.81.02.20.91.12.36.21.31.31.70.91.41.25.76.23.12.25.95.17.84.45.85.285.3Kaleidoscope
+0 507.112.826.215.115.822.033.918.520.823.020.927.723.740.938.636.333.744.841.345.344.646.046.749.168.2Pixel
+0 5024.144.539.252.955.756.449.763.263.063.569.066.869.456.657.757.164.361.568.164.063.664.968.268.477.3Snow
+0 5018.727.229.229.833.029.238.637.541.143.346.947.951.246.346.851.952.748.450.852.751.552.655.474.686.2Gabor
+Figure 12: ImageNet100 UA2 performance under low distortion.
+0 100ResNet50ResNet50 + L2 150ResNet50 + L 1
+ResNet50 + L2 300ResNet50 + L 2
+ResNet50 + L2 600ResNet50 + Self-bounded PAT + VR 1.0ResNet50 + L 32
+ResNet50 + L 4
+ResNet50 + L 16
+ResNet50 + L 8
+ResNet50 + L2 1200ResNet50 + Self-bounded PAT + VR 0.5ResNet50 + L2 2400ResNet50 + L2 4800ResNet50 + Self-bounded PAT + VR 0.3ResNet50 + AlexNet-bounded PATResNet50 + Self-bounded PAT + VR 0.1ResNet50 + Self-bounded PATResNet50 + AlexNet-bounded PAT + VR 1.0ResNet50 + AlexNet-bounded PAT + VR 0.5ResNet50 + AlexNet-bounded PAT + VR 0.3ResNet50 + AlexNet-bounded PAT + VR 0.1DINOv2 ViT-base Patch14DINOv2 ViT-large Patch14
+88.786.686.485.985.684.749.171.284.174.479.782.357.476.868.364.675.068.971.662.169.369.973.797.597.9Clean acc
+0 500.00.51.92.910.213.213.544.128.550.445.729.831.341.043.840.649.145.448.745.351.252.955.232.639.7PGD (4/255)
+0 503.25.67.07.310.411.413.613.715.316.016.716.821.121.625.025.926.728.028.428.631.331.832.246.060.7UA2
+0 500.00.83.65.414.821.011.41.833.710.725.341.532.252.453.044.456.549.554.850.555.957.159.631.337.2JPEG
+0 506.010.812.912.014.214.116.716.918.119.519.517.422.619.219.225.924.827.323.531.532.432.932.060.376.7Elastic
+0 507.010.914.414.119.917.821.326.925.232.630.521.726.424.325.330.028.832.127.230.135.435.436.554.573.0Wood
+0 500.82.12.83.34.96.512.929.56.619.010.611.318.118.526.525.622.928.129.326.029.528.829.230.645.4Glitch
+0 500.00.20.20.30.30.41.51.50.30.80.70.54.21.11.54.03.33.95.44.43.44.23.560.580.1Kaleidoscope
+0 501.04.15.85.27.06.415.06.97.36.87.48.819.512.018.024.018.927.925.623.026.327.126.232.748.4Pixel
+0 500.20.51.01.02.12.411.913.25.018.211.26.521.014.022.023.227.624.627.332.334.634.634.030.540.7Snow
+0 5011.015.015.717.320.123.018.413.026.020.227.926.924.631.434.529.830.930.734.531.133.034.536.167.884.4Gabor
+Figure 13: ImageNet100 UA2 performance under medium distortion
+0 100ResNet50ResNet50 + L2 150ResNet50 + L 1
+ResNet50 + L2 300ResNet50 + L 2
+ResNet50 + L2 600ResNet50 + L 4
+ResNet50 + L2 1200ResNet50 + L 8
+ResNet50 + L 16
+ResNet50 + L 32
+ResNet50 + Self-bounded PAT + VR 1.0ResNet50 + L2 2400ResNet50 + Self-bounded PAT + VR 0.5ResNet50 + AlexNet-bounded PATResNet50 + L2 4800ResNet50 + Self-bounded PAT + VR 0.3ResNet50 + Self-bounded PATResNet50 + Self-bounded PAT + VR 0.1ResNet50 + AlexNet-bounded PAT + VR 1.0ResNet50 + AlexNet-bounded PAT + VR 0.1ResNet50 + AlexNet-bounded PAT + VR 0.5ResNet50 + AlexNet-bounded PAT + VR 0.3DINOv2 ViT-base Patch14DINOv2 ViT-large Patch14
+88.786.686.485.985.684.784.182.379.774.471.249.176.857.475.068.364.671.668.862.173.769.369.997.597.9Clean acc
+0 500.00.00.10.10.70.73.24.315.728.325.83.713.711.924.322.519.126.322.927.933.131.832.631.537.7PGD (8/255)
+0 501.32.32.72.73.94.05.36.06.06.46.56.69.39.811.812.312.513.413.614.515.415.515.734.149.0UA2
+0 500.00.00.10.20.81.54.39.53.40.60.12.326.212.634.436.423.935.328.436.641.439.340.430.135.3JPEG
+0 500.81.51.61.22.22.03.02.23.34.94.26.22.97.25.43.67.65.27.811.18.910.010.331.851.7Elastic
+0 501.22.63.73.66.55.49.57.312.514.411.811.69.015.712.810.518.313.418.716.619.519.219.638.258.1Wood
+0 500.51.21.61.92.93.73.77.06.714.224.810.811.414.014.618.618.420.120.718.819.921.720.824.038.7Glitch
+0 500.00.00.00.10.00.20.10.20.40.51.01.10.53.02.20.93.03.73.13.22.72.83.436.963.9Kaleidoscope
+0 500.42.23.12.44.03.23.83.33.22.31.25.92.86.02.74.26.34.86.76.45.06.76.526.136.4Pixel
+0 500.00.00.00.00.00.00.10.10.10.20.20.80.10.70.10.10.40.10.30.20.20.30.229.333.3Snow
+0 507.710.911.412.014.415.817.718.618.813.99.214.221.918.821.824.322.324.922.722.725.424.024.556.874.7Gabor
+Figure 14: ImageNet100 UA2 performance under high distortion
+23D.4 E XPLORING THE ROBUSTNESS OF DINO V2
+Given the strong adversarial robustness of DINOv2 models under the PGD attack (Appendix D), we further
+evaluate the DINOv2 model under AutoAttack Croce & Hein (2020). Appendix D.4 and Appendix D.4
+show that although for the robust ResNet50 model AutoAttack performs similarly to PGD, it is able to
+reduce the accuracy of DINOv2 models to 0.0% across all the distortion levels. Future work may benefite
+from applying the AutoAttack benchmark as a comparison point, instead of the base PGD adversary.
+ResNet50 + L∞8/255 DINOv2 ViT-base Patch14 DINOv2 ViT-large Patch14
+PGD (2/255) 46.8% 12.0% 16.7%
+APGD-CE (2/255) 46.2% 1.0% 1.0%
+APGD-CE + APGD-T (2/255) 43.6% 0.0% 0.0%
+PGD (4/255) 38.9% 11.4% 15.3%
+APGD-CE (4/255) 37.9% 0.9% 0.8%
+APGD-CE + APGD-T (4/255) 33.8% 0.0% 0.0%
+PGD (8/255) 23.9% 11.0% 14.4%
+APGD-CE (8/255) 22.6% 0.6% 0.7%
+APGD-CE + APGD-T (8/255) 18.4% 0.0% 0.0%
+Table 10: Attacked accuracies of models on ImageNet
+ResNet50 + L∞8/255 DINOv2 ViT-base Patch14 DINOv2 ViT-large Patch14
+PGD (2/255) 64.5% 34.3% 42.3%
+APGD-CE (2/255) 64.4% 17.6% 20.0%
+APGD-CE + APGD-T (2/255) 64.1% 0.0% 0.0%
+PGD (4/255) 45.7% 32.6% 39.7%
+APGD-CE (4/255) 45.2% 16.4% 17.3%
+APGD-CE + APGD-T (4/255) 44.6% 0.0% 0.0%
+PGD (8/255) 15.7% 31.5% 37.7%
+APGD-CE (8/255) 14.7% 15.5% 14.5%
+APGD-CE + APGD-T (8/255) 13.6% 0.0% 0.0%
+Table 11: Attacked accuracies of models on ImageNet100
+D.5 P ERFORMANCE VARIANCE
+As described in Section 4.1, we perform adversarial attacks by optimizing latent variables which are ran-
+domly initialized in our current implementation, so the adversarial attack’s performance can be affected by
+the random seed for the initialization. To study the effect of random initializations, we compute the UA2
+performances of three samples of two ImageNet models, ResNet50 and ResNet50 + L25. We observe the
+standard deviations of UA2 of these two models across 5 different seeds to be respectively 0.1% and 0.04%
+concluding that the variation in performance across the ImageNet dataset is minor.
+E I MAGES OF ALLATTACKS ACROSS DISTORTION LEVELS
+We provide images of all 19 attacks within the benchmark, across the three distortion levels.
+24Gabor
+Kaleidoscope
+JPEG
+Mix
+Snow
+Figure 15: Attacked samples of low distortion (1st row), medium distortion (2nd row), and high distortion
+(last row) on a standard ResNet50 model
+25Glitch
+Wood
+Elastic
+Edge
+FBM
+Figure 16: Attacked samples of low distortion (1st row), medium distortion (2nd row), and high distortion
+(last row) on a standard ResNet50 model
+26Fog
+HSV
+Klotski
+Mix
+Polkadot
+Figure 17: Attacked samples of low distortion (1st row), medium distortion (2nd row), and high distortion
+(last row) on a standard ResNet50 model
+27Prison
+Blur
+Texture
+Whirlpool
+Figure 18: Attacked samples of low distortion (1st row), medium distortion (2nd row), and high distortion
+(last row) on a standard ResNet50 model
+28F S CALING BEHAVIOUR OF OURATTACKS
+To see how our attacks perform across model scale, we make use of the ConvNeXt-V2 model suite (Woo
+et al., 2023) to test the performance of our attacks as we scale model size. We find that capacity improves
+performance across the board, but find diminishing returns to simply scaling up the architectures, pointing
+towards techniques described in Appendix H.
+25 50 75 100 125 150 175 200
+Num. Parameters (Millions)0.00.20.40.60.81.0Attack Success RateUA2low
+UA2medium
+UA2high
+Figure 19: Unforeseen Robustness across model scale. We measure UA2 across model scale by evaluating
+the performance of ConvNeXt-V2 (Woo et al., 2023) models on ImageNet -UA, finding that scale improves
+performance, although the benchmark still provides a challenge to the largest models.
+G I MAGE NET-CAND UNFORESEEN ROBUSTNESS
+Model UA2 (non-optimized) ↑mCE↓UA2↑
+Resnet 50 55.2 76.7 1.6
+Resnet50 + AugMix 59.1 65.7 3.5
+Resnet50 + DeepAug 60.2 61.1 3.0
+Resnet50 + Mixup 59.9 69.2 4.8
+Resnet50 + L2, (ε= 5) 43.2 89.0 13.9
+Resnet50 + L∞, (ε= 8/255) 40.6 85.1 10
+Table 12: Common corruptions and UA2 We compare performance on the ImageNet-C benchmark (mCE)
+to performance against both non-optimized and optimized versions of our attacks. We find that performance
+on the average-case robustness of ImageNet-C is correlated with performance on optimised attacks, while
+applying optimised versions favours the adversarially trained models.
+2925 50 75 100 125 150 175 200
+Num. Parameters (Millions)0.00.20.40.60.81.0Attack Success RateLow Distortion.
+Medium Distortion.
+High Distortion.(a) JPEG
+25 50 75 100 125 150 175 200
+Num. Parameters (Millions)0.00.20.40.60.81.0Attack Success RateLow Distortion.
+Medium Distortion.
+High Distortion. (b) Elastic
+25 50 75 100 125 150 175 200
+Num. Parameters (Millions)0.00.20.40.60.81.0Attack Success RateLow Distortion.
+Medium Distortion.
+High Distortion.
+(c) Wood
+25 50 75 100 125 150 175 200
+Num. Parameters (Millions)0.00.20.40.60.81.0Attack Success RateLow Distortion.
+Medium Distortion.
+High Distortion. (d) Glitch
+25 50 75 100 125 150 175 200
+Num. Parameters (Millions)0.00.20.40.60.81.0Attack Success RateLow Distortion.
+Medium Distortion.
+High Distortion.
+(e) Kaleidoscope
+25 50 75 100 125 150 175 200
+Num. Parameters (Millions)0.00.20.40.60.81.0Attack Success RateLow Distortion.
+Medium Distortion.
+High Distortion. (f) Pixel
+25 50 75 100 125 150 175 200
+Num. Parameters (Millions)0.00.20.40.60.81.0Attack Success RateLow Distortion.
+Medium Distortion.
+High Distortion.
+(g) Snow
+25 50 75 100 125 150 175 200
+Num. Parameters (Millions)0.00.20.40.60.81.0Attack Success RateLow Distortion.
+Medium Distortion.
+High Distortion. (h) Gabor
+Figure 20: Behaviour of core attacks across model scale. We see the performance of the eight core attacks
+across the ConvNeXt-V2 model suite, with performance on attacks improving with model scale.
+30H B ENCHMARKING NON-LpADVERSARIAL TRAINING STRATEGIES
+We wish to compare training strategies which have been specifically developed for robustness against both
+a variety of and unforeseen adversaries. To this end, we use Meta Noise Generation (Madaan et al., 2021b)
+as a strong multi-attack robustness baseline, finding that on CIFAR -10-UAthis leads to large increases
+in robustness (Appendix H). We also evaluate Perceptual Adversarial Training (Laidlaw et al., 2020) and
+Variational Regularization (Dai et al., 2022), two techniques specifically designed to achieve unforeseen
+robustness. We also evaluate combining PixMix and Lpadversarial training. All of these baselines beat Lp
+training.
+Training Clean Acc. UA2
+Standard 95.8 7.4
+L∞, ε=8/255 86.5 39.8
+L2, ε= 2 95.5 21.4
+MNG 88.9 51.1
+Table 13: Comparing alternative training strategies to Lpbaselines We demonstrate that models trained
+using Meta Noise Generation (MNG) (Madaan et al., 2021b) improve over Lptraining baselines on
+CIFAR -10-UA.
+Meta Noise Generation (MNG) out-performs Lpbaselines. We find that MNG, a technique original
+developed for multi-attack robustness shows a 11.3% increase in UA2 onCIFAR -10-UA, and PAT shows a
+3.5%increase in UA2.
+Training Clean Acc. UA2
+Standard 88.7 3.2
+L∞,ε= 8/255 79.7 17.5
+L2,ε= 4800 /255 71.6 25.0
+PAT 75.0 26.2
+PAT-VR 69.4 29.5
+Table 14: Specialised Unforseen robustness training strategies. We see that ImageNet -UAPAT (Laidlaw
+et al., 2020) and PAT-VR (Dai et al., 2022)trained ResNet50s improve over Lpbaselines. Selected Lp
+models are the best Resnet50s from the bench-marking done in Figure 7, and for computational budget
+reasons they are trained on a 100-image subset of ImageNet, constructured by taking every 10th class.
+Model Clean Acc. UA2
+WRN-40-2 + PixMix 95.1 15.00
+WRN-28-10 + L∞4/255 89.3 37.3
+WRN-28-10 + L∞4/255 + PixMix 91.4 45.1
+WRN-28-10 + L∞8/255 84.3 41.4
+WRN-28-10 + L∞8/255 + PixMix 87.1 47.4
+Table 15: PixMix and Lptraining. We compare UA2 performance on CIFAR-10 of models trained with
+PixMix and adversarial training. Combining PixMix with adversarial training results in large improvements
+inUA2, demonstrating an exciting future direction for improving unforeseen robustness. All numbers
+denote percentages, and L∞training was performed with the TRADES algorithm.
+31Attack Name Correct Corrupted or Ambiguous
+Clean 95.4 4.2
+Elastic 92.0 2.0
+Gabor 93.4 4.0
+Glitch 80.2 16.0
+JPEG 93.4 0.6
+Kaleidescope 93.0 6.2
+Pixel 92.6 1.8
+Snow 90.0 3.2
+Wood 91.4 1.8
+Adversarial images average 91.2 4.5
+Table 16: Results of user study. We run a user study on the 200 class subset of ImageNet presented as part
+of ImageNet-R (Hendrycks et al., 2021), assessing the multiple-choice classification accuracy of human
+raters, allowing raters to choose certain images as corrupted. We use 4 raters per label and take a majority
+vote, finding high classification accuracy across all attacks.
+I H UMAN STUDY OF SEMANTIC PRESERVATION
+We ran user studies to compare the difficulties of labeling the adversarial examples compared to the clean
+examples. We observe that under our distribution of adversaries users experience a 4.2% drop in the ability
+to classify. This highlights how overall humans are still able to classify over 90% of the images, implying
+that the attacks have not lost the semantic information, and hence that models still have room to grow before
+they match human-level performance on our benchmark.
+In line with ethical review considerations, we include the following information about our human study:
+•How were participants recruited? We made use of the surgehq.ai platform to recruit all partici-
+pants.
+•How were the participants compensated? Participants were paid at a rate of $0.05per label,
+with an average rating time of 4 seconds per image—ending at an average rate of roughly $45
+hour.
+•Were participants given the ability to opt out? All submissions were voluntary.
+•Were participants told of the purpose of their work? Participants were told that their work was
+being used to ”validate machine learning model performance”.
+•Was any data or personal information collected from the participants? No personal data was
+collected from the participants.
+•Was there any potential risks done to the participants? Although some ImageNet classes are
+sometimes known to contain elicit or unwelcome content Prabhu (2019). Our 100-class subset
+of ImageNet purposefully excludes such classes, and as such participants were not subject to any
+undue risks or personal harms.
+32Figure 21: Interface of participants. We demonstrate the interface which was provided to the participants
+of the study, involving the selection of correct classes from our 100-class subset of ImageNet.
+This work is used to validate machine learning model performance and your par-
+ticipation is voluntary. You’re free to stop the task at any point in time.
+You’ll be shown an image. One of the labels is indeed present in the image
+please select the correct one. If you’re unfamiliar with a label take a sec-
+ond to search for it on google images. Please let us know if this happens
+often.
+The image may however be too corrupted in which case select that it is too
+corrupted. Please avoid using corrupted label unless necessary. Thanks!
+Figure 22: Instructions given to the participants. Above is a list of the instructions which were given to
+the participants in the human study.
+33J C ORRELATION OF LpROBUSTNESS AND ImageNet -UA
+0 10 20 30 40 50 60
+PGD (4/255)051015202530UA2Adv. trained models
+Regular models
+Figure 23: Lprobustness correlates with UA2. Across our benchmark, for adversarially trained models Lp
+robustness correlates with UA2 - however, several models trained without adversarial training still improve
+onUA2.
+K G RID SEARCH VS .GRADIENT -BASED SEARCH
+Optimisation Technique UA2
+Randomized grid search 74.1
+Gradient-based search (ours) 7.2
+Table 17: Comparing gradient-based search to grid-based search We compare the performance of op-
+timising with a randomised grid-based search using 1000 forward-passes per datapoint, finding that our
+gradient-based methods perform a lot better than this compute-intensive baseline.
+34L T RANSFER ATTACKS
+Appendix L shows the transfer-attack performances across various source and target models based on 1000
+test samples. We observe that while the transfer attacks are not as effective as white-box attacks, they
+consistently outperform baseline unoptimized attacks where the perturbations are randomly initialized (Ap-
+pendix L).
+Clean Acc. PGD UA2 JPEG Elastic Wood Glitch Kal. Pixel Snow Gabor
+ResNet50 ( source model ) 75.2 0 13.2 0 22.2 30.8 10 4.3 4.8 3.1 30.4
+ViT-small Patch16 ImageNet1K 78.5 73.1 59.99 75 62.7 69.9 46 48 62.8 55.5 60
+ConvNeXt-V2-tiny ImageNet1K 82.1 74.8 67.66 77.1 69 75.9 54 60 73.6 65.2 66.5
+Swin-small ImageNet1K + L∞4/255 71.1 70.6 50.39 70.9 56.7 65.8 34.8 10.7 59.3 48.4 56.5
+ResNet50 75.2 67.9 43.19 70.1 53.1 57.7 30.1 5.4 53.3 38.1 37.7
+ViT-small Patch16 ImageNet1K ( source model ) 78.5 0 6.51 0 8.2 12.7 0.5 4.7 2.1 0.8 23.1
+ConvNeXt-V2-tiny ImageNet1K 82.1 75.7 67.3 78.6 68.5 72.8 56.4 59.9 70.1 65.1 67
+Swin-small ImageNet1K + L∞4/255 71.1 70.5 50.11 70.9 57.1 65.1 35 10.8 59.5 48 54.5
+ResNet50 75.2 67.8 42.06 68.3 51 55.7 31.7 5.8 51.7 32.1 40.2
+ViT-small Patch16 ImageNet1K 78.5 74.7 57.31 75 60 69 42 46.8 57.2 50.2 58.3
+ConvNeXt-V2-tiny ImageNet1K ( source model ) 82.1 0 12.15 0 23.2 22.3 7.4 3.5 6 0.6 34.2
+Swin-small ImageNet1K + L∞4/255 71.1 71.2 50.1 71.2 56.1 65 37.8 10.7 59.1 45 55.9
+ResNet50 75.2 64 36.95 61.8 42.5 57.8 15.6 5.4 45.3 29.2 38
+ViT-small Patch16 ImageNet1K 78.5 66.9 53.3 70.6 51.4 68.2 23.8 47.1 58.4 44.2 62.7
+ConvNeXt-V2-tiny ImageNet1K 82.1 75.5 65.26 75.7 64.7 74.5 46.1 58.2 72.3 63.6 67
+Swin-small ImageNet1K + L∞4/255 ( source model ) 71.1 53.8 21.4 42 17.9 42.3 5.1 5.1 7.6 3.4 47.8
+Table 18: Transfer attack performance
+Clean Acc. PGD UA2 JPEG Elastic Wood Glitch Kal. Pixel Snow Gabor
+ResNet50 75.2 74.1 56.44 74.3 62.8 55.7 55.8 6.3 74.1 74.8 47.7
+ViT-small Patch16 ImageNet1K 78.5 78 69.19 78 70.2 70.2 65.4 47.7 77.3 78.6 66.1
+ConvNeXt-V2-tiny ImageNet1K 82.1 82.2 74.74 82.2 75.2 74.4 69.7 60.7 81.5 81.4 72.8
+Swin-small ImageNet1K + L∞4/255 71.1 71.3 58.19 71.6 62 63.4 58 10.2 70.9 71.7 57.7
+Table 19: Unoptimized attack performance
+M X-R ISKSHEET
+We provide an analysis of how our paper contributes to reducing existential risk from AI, following the
+framework suggested by ?. Individual question responses do not decisively imply relevance or irrelevance
+to existential risk reduction.
+M.1 L ONG -TERM IMPACT ON ADVANCED AI S YSTEMS
+In this section, please analyze how this work shapes the process that will lead to advanced AI systems and
+how it steers the process in a safer direction.
+1.Overview. How is this work intended to reduce existential risks from advanced AI systems?
+Answer: This work explores robustness of neural networks to unforeseen forms of optimization
+pressure. Advanced AI systems may be highly effective and creative optimizers, capable of carry-
+ing out “zero-day” attacks on software systems and other AIs alike. Improving the robustness of
+AIs to unforeseen attacks may protect them against powerful adversaries seeking to break them.
+In some cases, this could reduce existential risk. For example, biothreat screening tools could
+leverage classifiers that are robust to unforeseen attacks to resist highly advanced attempts at evad-
+ing detection. Additionally, neural network proxy objectives that lack robustness to optimization
+pressure could lead to catastrophic outcomes if optimized to an extreme degree ( ?).
+2.Direct Effects. If this work directly reduces existential risks, what are the main hazards, vulnera-
+bilities, or failure modes that it directly affects?
+Answer: This work directly reduces risks from proxy gaming and bioterrorism (via improved
+robustness of screening tools).
+353.Diffuse Effects. If this work reduces existential risks indirectly or diffusely, what are the main
+contributing factors that it affects?
+Answer: By focusing on unforeseen attacks, or work encourages a security mindset that recog-
+nizes a multitude of potential vulnerabilities, including ones that have not been considered yet.
+By proposing a safety benchmark, we hope to improve safety culture and the amount of safety
+research in the ML community.
+4.What’s at Stake? What is a future scenario in which this research direction could prevent the
+sudden, large-scale loss of life? If not applicable, what is a future scenario in which this research
+direction be highly beneficial?
+Answer: Malicious actors could use advanced AIs to help them develop bioweapons that evade
+most screening and detection mechanisms. Adversarially robust detectors are crucial for mitigating
+this risk, and robustness to unforeseen attacks is necessary when dealing with advanced AI-assisted
+design processes.
+5.Result Fragility. Do the findings rest on strong theoretical assumptions; are they not demonstrated
+using leading-edge tasks or models; or are the findings highly sensitive to hyperparameters? □
+6.Problem Difficulty. Is it implausible that any practical system could ever markedly outperform
+humans at this task? □
+7.Human Unreliability. Does this approach strongly depend on handcrafted features, expert super-
+vision, or human reliability? □
+8.Competitive Pressures. Does work towards this approach strongly trade off against raw intelli-
+gence, other general capabilities, or economic utility? ⊠
+M.2 S AFETY -CAPABILITIES BALANCE
+In this section, please analyze how this work relates to general capabilities and how it affects the balance
+between safety and hazards from general capabilities.
+9.Overview. How does this improve safety more than it improves general capabilities?
+Answer: We propose a benchmark that enables quantifying differential progress on robustness to
+unforeseen adversaries relative to clean accuracy. We find that methods improving clean accuracy
+also improve unforeseen robustness, but some methods do provide differential improvements to
+UA2, including adversarial training and data augmentation. Adversarial robustness is widely con-
+sidered to be in tension with clean accuracy. In particular, improving robustness through adversar-
+ial training reduces clean accuracy . Thus, developing methods to improve unforeseen robustness
+is unlikely to substantially improve general capabilities as well.
+10.Red Teaming. What is a way in which this hastens general capabilities or the onset of x-risks?
+Answer: Improving the robustness of proxy objectives to optimization pressure could improve the
+effectiveness of reward-based fine-tuning of AI systems , which would improve general capabili-
+ties as well as safety.
+11.General Tasks. Does this work advance progress on tasks that have been previously considered
+the subject of usual capabilities research? □
+12.General Goals. Does this improve or facilitate research towards general prediction, classification,
+state estimation, efficiency, scalability, generation, data compression, executing clear instructions,
+helpfulness, informativeness, reasoning, planning, researching, optimization, (self-)supervised
+learning, sequential decision making, recursive self-improvement, open-ended goals, models ac-
+cessing the Internet, or similar capabilities? □
+13.Correlation with General Aptitude. Is the analyzed capability known to be highly predicted by
+general cognitive ability or educational attainment? □
+14.Safety via Capabilities. Does this advance safety along with, or as a consequence of, advancing
+other capabilities or the study of AI? □
+M.3 E LABORATIONS AND OTHER CONSIDERATIONS
+15.Other. What clarifications or uncertainties about this work and x-risk are worth mentioning?
+Answer: Regarding Q8, adversarial training reduces clean accuracy while improving robustness
+to unforeseen adversaries. However, we also find that other methods can improve robustness to
+36unforeseen adversaries without trading off clean accuracy. Thus, there may be ways of achieving
+high robustness to unforeseen adversaries without trading off significant amounts of clean accu-
+racy. However, these methods may still incur an overhead cost in terms of compute resources.
+37

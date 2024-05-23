@@ -1,0 +1,1543 @@
+Computational Limitations in Robust Classication and Win-Win
+Results
+Akshay Degwekar Preetum Nakkiran Vinod Vaikuntanathan
+June 6, 2019
+Abstract
+We continue the study of statistical/computational tradeos in learning robust classiers,
+following the recent work of Bubeck, Lee, Price and Razenshteyn who showed examples of
+classication tasks where (a) an ecient robust classier exists, in the small-perturbation regime ;
+(b) a non-robust classier can be learned eciently; but (c) it is computationally hard to learn
+a robust classier, assuming the hardness of factoring large numbers. Indeed, the question of
+whether a robust classier for their task exists in the large perturbation regime seems related
+to important open questions in computational number theory.
+In this work, we extend their work in three directions.
+First, we demonstrate classication tasks where computationally ecient robust classication
+is impossible, even when computationally unbounded robust classiers exist. For this, we rely
+on the existence of average-case hard functions, requiring no cryptographic assumptions.
+Second, we show hard-to-robustly-learn classication tasks in the large-perturbation regime .
+Namely, we show that even though an ecient classier that is very robust (namely, tolerant to
+large perturbations) exists, it is computationally hard to learn any non-trivial robust classier.
+Our rst construction relies on the existence of one-way functions, a minimal assumption in
+cryptography, and the second on the hardness of the learning parity with noise problem. In
+the latter setting, not only does a non-robust classier exist, but also an ecient algorithm
+that generates fresh new labeled samples given access to polynomially many training examples
+(termed as generation by Kearns et. al. (1994)).
+Third, we show that any such counterexample implies the existence of cryptographic prim-
+itives such as one-way functions or even forms of public-key encryption. This leads us to a
+win-win scenario: either we can quickly learn an ecient robust classier, or we can construct
+new instances of popular and useful cryptographic primitives.
+This work is a merge of [DV19] and [Nak19].arXiv:1902.01086v2  [stat.ML]  5 Jun 2019Contents
+1 Introduction 1
+2 Our Results 2
+2.1 Existence (World 2) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2
+2.2 Learnability (World 4) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+2.3 A Win-Win Result . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+2.4 Related Work. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+3 Our Techniques 5
+3.1 The BLPR Classication Task . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+3.2 Denitions: Robust Classication . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+3.3 Unlearnability From Pseudorandom Functions and Error Correcting Codes . . . . . 6
+3.4 Non-Existence of Robust Classiers from Average-Case Hardness . . . . . . . . . . . 7
+3.5 From Hardness of Decoding under Noise. . . . . . . . . . . . . . . . . . . . . . . . . . 8
+3.6 Converse: Cryptography from Hardness of Robust Classication. . . . . . . . . . . . 10
+4 Denitions 11
+4.1 Learning & Classication . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+4.2 Hardness of Ecient Robust Classication . . . . . . . . . . . . . . . . . . . . . . . . 12
+5 Learning Parity with Noise 13
+5.1 Assumption Denition and Discussion . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+5.2 No Ecient Robust Classier Exists . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+5.3 Ecient Robust Classier Exists but is Hard to Learn . . . . . . . . . . . . . . . . . 17
+6 Learning with Errors 19
+6.1 Preliminaries . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+6.2 No Ecient Robust Classier Exists . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+6.3 An Ecient Robust Classier Exists but is Hard to Learn . . . . . . . . . . . . . . . 20
+7 Using Pseudorandom Functions and Error Correcting Codes 22
+8 Using Average-Case Hardness and Error Correcting Codes 24
+9 Cryptography from Robustly Hard Tasks 26
+A A Description of BLPR Example and the Blum-Blum-Shub PRG. 30
+i1 Introduction
+The basic task in learning theory is to learn a classier given a dataset. Namely, given a labeled
+datasetf(Xi;f(Xi))gi2[n]wherefis the unknown ground-truth and Xiare drawn i.i.d. from a
+distribution D, learn a classier hso as to (approximately) minimize
+:=P
+XD[h(X)6=f(X)]
+Adversarial machine learning is harder in that the learned classier is required to be robust . Namely,
+it has to produce the right answer even under bounded perturbations (under some distance measure)
+of the sample XD. That is, the goal is to learn a classier hso as to (approximately) minimize
+:=P
+XD[9Y2B(X;") s.t.h(Y)6=f(Y)]
+whereB(X;") =fY:d(X;Y )ganddis the distance measure in question.
+Learning robust classiers is an important question given a large number of attacks against
+practical machine learning systems that show how to minimally perturb a sample Xso that clas-
+siers output the wrong prediction with high probability. Such attacks were rst discovered in the
+context of spam ltering and malware classication [DDS+04, LM05, BR18] and more recently,
+following [GSS, SZS+13], in image classication, voice recognition and many other domains.
+This state of aairs raises a slew of questions in learning theory. Fix a concept class Fand a
+distribution Dfor which ecient (non-robust) learning is possible. Do there exist robust classiers
+forF? Do there exist eciently computable robust classiers for F? Pushing the envelope further,
+can such classiers be learned with small sample-complexity? and nally, is the learning algorithm
+computationally ecient? The answer to these questions give rise to ve possible worlds of robust
+learning, rst postulated in two recent works [BPR18] and [BLPR18], henceforth referred to as
+BPR and BLPR respectively.1This is the starting point of our work.
+World 1.No robust classiers exist, regardless of computational or sample-eciency considera-
+tions. [FFF18] show a learning task in this world, namely one where computationally ecient
+non-robust classication is possible, no robust classiers exist. On the other hand, for natural
+learning tasks, humans seem to be robust classiers that tolerate non-zero error rate , indeed
+even ecient robust classiers; see [BPR18] for a more detailed discussion.
+World 2.Robust classiers exist, but they are computationally inecient. We demonstrate learn-
+ing tasks in this world.
+World 3.Computationally ecient robust classiers exist, but learning them incurs large sample
+complexity. [SST+18] show a learning task where a computationally ecient robust classier
+exists, but learning it requires polynomially more samples than non-robust learning. On the
+other hand, [BPR18] show that this gap cannot be more than linear in the dimension; see
+[BPR18] for a more detailed discussion.
+World 4.Computationally ecient robust classiers exist, and can be learned sample-eciently,
+but training is computationally inecient. [BLPR18] show a learning task in this world.
+However, as we observe below, their computationally ecient robust classier only recovers
+from a very small number (indeed, a constant number) of perturbations. Whether there
+1To be precise, [BPR18] postulated four worlds, namely worlds 1 and 3{5. Subsequent work of [BLPR18] added
+the second world.
+1exists an ecient robust classier for their task that recovers from large perturbations seems
+related to long-standing open questions in computational number theory [Hen19, Gre13]. As
+our second result, we show two examples of learning tasks that live in this world; more details
+in Section 2.
+World 5.The best world of all, in which there exist ecient algorithms both for classication and
+training, and the sample complexity is small (but it could be that we haven't discovered the
+right algorithm just yet.)
+We want to understand { are we likely to nd learning tasks such as the ones [BLPR18] and
+we demonstrate in the wild? To that end, our third result is a win-win statement: namely,
+any such learning task gives rise to a cryptographic object{ either a simple one like a one-way
+function or a complex one like public-key encryption.
+We proceed to describe the three results in more detail.
+But before we do so, a word of warning. We and [BLPR18] dene these ve worlds in a coarse
+way using polynomial-time as a proxy for computational eciency, and a large constant accuracy
+as a proxy for successful classication. (We should also mention that [BPR18] use SQ-learning as
+a dierent proxy for computationally ecient learning.) One could be more careful and speak of
+running-time/accuracy tradeos in the dierent worlds, but since our goal here is to show broad
+counterexamples, we do not attempt to do such a ne-grained distinction.
+2 Our Results
+We explore the relationship of computational constraints and ecient robust classication. The
+setting we consider consists of two distributions D0;D1and the classier has to correctly classify
+inputs from both. We consider the two facets to ecient robust classication: (1) existence: do
+ecient robust classiers exist? (corresponds to World 2) and (2) learnbility: can we learn robust
+classiers eciently? We show three sets results on which we elaborate below.
+2.1 Existence (World 2)
+In terms of feasibility, we show that there are learning tasks where while inecient robust classi-
+cation is possible, no ecient robust classiers exist . That is, we demonstrate learning tasks in
+World 2. We can show the following:
+Theorem 2.1 (Informal) .There exist classication tasks over where (1) ecient non-robust clas-
+siers exist, (2) no ecient robust classier exists, but (3) inecient robust classiers exist.
+This result does not require cryptographic assumptions, and relies only on the existence of
+average-case hard functions and good error-correcting codes. In fact, this result scales down to
+more ne-grained notions of eciency than polynomial-time. All that is required is a function that
+is average-case hard for the \ecient" class, but computable by the \inecient" class.
+We give several examples of such learning tasks, including some examples that require crypto-
+graphic assumptions but obtain other desirable properties (such as obtaining tasks with eciently-
+samplable distributions). More details are given in Sections 3.4, 3.5, 5, 6 and 8.
+22.2 Learnability (World 4)
+We want to understand the hardness of learning an ecient robust classier when it exists. The
+starting point of this work was the BLPR work [BLPR18]. They showed that under cryptographic
+assumptions, there exists a learning task which admits ecient robust classiers, but it is com-
+putationally infeasible to train such a classier. More precisely, they showed that there exists a
+classication task (over f0;1gn) where (a) learning any non-trivial robust classier is computation-
+ally infeasible while (b) an ecient robust classier exists.
+Unfortunately, we observe that their robust classier is ecient only when correcting a constant
+number of errors. Indeed, as we explain in Section 3.1, the question of whether there exists a
+computationally ecient robust classier for their task correcting even !(1) bits of error is an
+important open question in computational number theory that has received some attention in the
+cryptanalysis community [Gre13, Hen19].
+The BPLR construction can be rescued using error correcting codes to enable ecient robust
+classiers robust to large (constant fraction) perturbations. Our results strengthen theirs in two
+ways: we can weaken the required cryptographic assumption to that one-way functions exist and
+demonstrate tasks where the gap between learning and robust classication is more: in that ecient
+learning algorithms can learn to not only classify, but also to generate fresh samples from the
+distributions.
+Theorem 2.2 (Informal) .Under the minimal cryptographic assumption that one-way functions,
+there exist classication tasks over f0;1gmwhere (1) it is easy to learn a non-robust classier (2) an
+ecient robust classier that tolerates m=8-sized perturbations exists, and (3) it is computationally
+hard to learn any non-trivial robust classier.
+Theorem 2.3 (Informal) .Assuming Learning Parity with Noise (or Learning with Errors) in the
+\public-key" regime of parameters, there exist classication tasks on f0;1gmwhere (1) it is easy to
+learn a non-robust classier. (2) an ecient robust classier tolerating O(pm)-errors exists, and
+(3) it is computationally hard to learn any non-trivial robust classier.
+Furthermore, it is easy to learn generators/evaluators for the non-robust distributions.2
+We elaborate on the dierences between the two theorems in the techniques section. Briey,
+there are three key dierences: Theorem 2.3 requires a stronger assumption, but gives a more
+\natural" example where the resulting distributions are \more easier" to learn non-robustly. In
+particular, it is easy to learn how to generate fresh samples from the two distributions, something
+that the one-way function based example cannot support. This is important because we want
+to separate the complexity of learning the distribution from that of robust classication. And
+here, these distributions can be learned in a stronger sense while still being hard to classify under
+adversarial perturbations.
+2.3 A Win-Win Result
+Finally, we want to understand { Are we likely to nd such learning tasks in the wild? To that
+end, we show a converse to our results. Namely,
+Theorem 2.4 (Informal) .Any computational task where an ecient robust classier exists, but is
+hard to learn one in polynomial time implies one-way functions, and hence symmetric key cryptog-
+raphy.
+2Generators and Evaluators [KMR+94], are algorithms that can sample from the distribution and output the pdf
+of the distribution respectively.
+3Furthermore, if the learning task satises certain natural properties, it gives us (a certain weaker
+form of) public-key cryptography as well!
+It would be very surprising to us if public-key cryptography (and even one-way functions)
+arise out of natural classication tasks on, say, images. Thus, perhaps uncharacteristically for
+cryptographers, we oer a possible (optimistic) interpretation of this state of aairs: namely, that
+fornatural learning tasks where there exists a robust classifer, it can also be eciently found, we
+just haven't gured out the right algorithm yet.
+An important caveat is due here: our denition of hardness of learning a robust classier
+is a strong one: it requires that the perturbing adversary be constructive and universal. Our
+classication tasks do satisfy this denition, and that only makes them stronger. On the other
+hand, it does make our converse weaker. More details are given in Section 3.
+2.4 Related Work.
+The works closest to ours are [BPR18, BLPR18]. We discuss them last.
+Adversarial Examples. The problem of adversarial classication ws rst considered by
+[DDS+04]. Starting with [SZS+13], there is a large body of work demonstrating the existence
+of small adversarial perturbations in neural networks that cause them to misclassify examples with
+high condence. There have been various approaches proposed against such perturbations and
+many of them have been broken (see [CW17, ACW18] and references therein).
+A line of work which [GMF+18, FFF18, MM18] shows that for certain learning tasks and dis-
+tributions (eg spheres in Rnor product distributions), due to concentration of measure adversarial
+examples exist close to points in the distribution and can at times be found eciently for classiers
+that are not perfectly correct, pointing to the challenges of robust classication in this setting.
+These works show evidence for World 1: that for certain specic models and training algorithms,
+robust classiers don't exist. In our learning tasks, robust classication is possible, albeit compu-
+tationally inecient.
+[SST+18] demonstrate simple classication tasks (distinguishing between high dimensional gaus-
+sians) where the sample complexity of robust learning is higher than that of classical learning by
+a polynomial factor. Hence they show evidence for world 3. [BPR18] show that this gap is es-
+sentially tight. This work is similar in spirit to ours, with the resource being sample complexity
+instead of computational complexity in our case. In the case of computational complexity, we can
+essentially show exponential gap between the running time required for learning non-robustly vs
+learning robust classiers.
+BPR/BLPR [BPR18, BLPR18]. In BPR, they showed two results. First, that in the
+world of polynomial sample complexity with no bounds on running time, learning a non-robust
+classier and learning a robust classifer have the comparable sample complexity, if such a robust
+classier exists. Second, they exhibit a learning task where while learning a robust classier was
+information-theoretically easy with polynomial sample complexity, but doing so was dicult in the
+SQ model and it required exponentially many queries. This gives rise to a task where learning a
+robust classier in a computationally ecient manner (in the SQ model) was a lot harder than
+doing so ineciently.
+In a followup work, BLPR they considered strengthening the second BPR result to show that
+under cryptographic assumptions, there exists a learning task which admitted ecient robust classi-
+ers, but it was computationally infeasible to do so. They showed that there exists a classication
+task (overf0;1gn) where learning any non-trivial robust classier is computationally infeasible
+4while an ecient robust classier exists that can correct O(1)-bit error. A description of their
+construction is given in Section 3.1 and Appendix A.
+3 Our Techniques
+In this section, we give a high level description of our techniques. We begin by describing the BLPR
+classication task and its limitations. Then we describe the denition of robust classication and
+non-existence/unlearnability of such classiers. We then describe several recipes for constructing
+tasks where robust classication is computationally intractable. In the rst recipe, based on
+one-way functions, we show tasks where while ecient robust classiers exist, but are hard to
+learn, thus proving Theorem 2.2. The second recipe assuming average-case hard functions proves
+Theorem 2.1, where no ecient robust classiers exist. The nal recipe is based on hardness
+assumptions on decoding noisy codewords / lattices, namely Learning Parity with Noise (LPN)
+and Learning with Errors (LWE) and proves Theorems 2.1 and 2.3 in dierent parameter regimes.
+3.1 The BLPR Classication Task
+We sketch the [BLPR18] classication task where it is dicult to learn a robust classier. A more
+detailed description of their construction is given in Appendix A.
+The key object in their construction is a \trapdoor pseudorandom generator". A pseudorandom
+generator PRG :f0;1gn!f0;1g2nis an expanding function whose outputs are indistinguishable
+from truly random strings. That is, fPRG(x) :x f0;1gngc
+y:y f0;1g2n	
+.3A trapdoor
+pseudorandom generator has a hard-to-nd trapdoor trapthat allows distinguishing the output of
+the PRG from random outputs. That is, there exists a distinguisher Dsuch that (say),
+P
+x f0;1gn[D(trap;TrapPRG (x)) = 1] P
+y f0;1g2n[D(trap;y) = 1]>0:99
+They show that the Blum-Blum-Shub Pseudorandom generator [BBS86] has such a trapdoor. Given
+a trapdoor PRG, their learning task D0;D1is the following:
+D0=f(0;TrapPRG (x)) :x f0;1gngand,D1=
+(1;y) :y f0;1g2n	
+:
+The rst bit enables easy non-robust classication. The fact that there exists an inecient robust
+classier follows from a volume argument { that the there are a few PRG outputs in a large domain.
+This implies that there is an inecient robust classier that tolerates O(pn)-sized perturbations.
+That a robust classier is hard to learn follows from the perturbing adversary that sets the rst
+bit to 0. A robust classier has to distinguish between outputs of the PRG from random strings,
+without the trapdoor. This is infeasible by the security guarantee of the PRG.
+Finally, what needs to be proved is that the trapdoor enables robust classication . The trapdoor
+indeed does enable a robust classier that tolerates constant-sized pertubations (i.e., if any constant
+number of bits are altered) simply by exhaustive search among the polynomially many possible sets
+of perturbed bits. For a constant c, the robust classier given input ygoes over all ncwords in the
+Hamming ball y02B(y;c) and checks if the distinguisher D(trap;y0) = 1. If yes, output D0else
+outputD1. But this approach does not give a classier beyond constant-sized errors because the
+running time is exponential in the number of errors corrected.
+3We say that two families of distributions fXngn2NanfYngn2Narecomputationally indistinguishable (denoted by
+fXngcfYngorXcYfor brevity) if for every polynomial time distinguisher D,jPx Xn[D(x)] Py Yn[D(y)]j
+negl(n).
+5The primary limitation of trapdoor PRGs is that the trapdoor does not enable decoding the
+PRG output from the perturbed samples, only distinguishes PRG outputs from random strings.
+Indeed, for the Blum-Blum-Shub trapdoor PRG (and related constructions such as the one of
+Micali and Schnorr [MS91]) considered in BLPR, the question of whether there is any trapdoor
+that permits robust inversion is an open question in computational number theory. We refer the
+reader to Appendix A for discussions regarding related questions. To enable ecient decoding,
+their construction can be modied by using an error correcting code to make it robust to larger
+pertubations.
+3.2 Denitions: Robust Classication
+We start by describing the notion of robust classication and hardness of robust classication used.
+Robust Classier. When we state that a robust classier exists (for given "), we show the
+strongest notion: that there exists a classier R(ecient or inecient, as specied) that classies
+all input close to a random sample correctly:
+Forb2f0;1g,P
+x Db
+R(x0) =bfor allx02B(x;")
+>0:99:
+Non-Existence/Unlearnability of Robust Classiers. When we describe the non-existence
+(or unlearnability) of robust classication , we satisfy the strongest notion: that there exists a poly-
+time perturbation adversary Pwhose perturbed examples cannot be classied better than chance
+by any ecient (or eciently learned) classier. That is, for any ecient R(orR learnD0;D1(1n)),
+P
+x Db
+R(PD0;D1(x)) =b
+<0:5 +negl(n);
+where a negl :N!Ris a function such that negl(n)< n cfor allc2Nfor large enough
+n. See Denition 4.5 for a formal denition of hard to learn robustly. This denition has two
+key properties: it is constructive (adversarial perturbations are found) and universal (the same
+adversary works for all algorithms).
+The negation of the robust classication denition suggests the following denition: for e-
+ciently learned classiers R,Px Db
+B(x;")6R 1(b)
+<0:99. This denition is unsatisfying be-
+cause it says nothing about the hardness of nding such misclassied examples. In particular, if
+such adversarial perturbations existed but were computationally hard to nd, then the existence of
+adversarial examples is not an issue. Hence, we choose a constructive denition that requires such
+examples to be eciently found. The fact that the adversary is universal only makes the counter
+examples stronger.
+3.3 Unlearnability From Pseudorandom Functions and Error Correcting Codes
+In this section, we construct a learning task where classication is easy, robust classier exits, but
+is hard to learn. The primary ingredients of this construction are pseudorandom functions and
+error correcting codes. We introduce both the primitives and build the construction in stages. A
+pseudorandom function family (PRF) [GGM86] is a family of keyed functions Fk:f0;1gn!f0;1g
+where the key k f0;1gn, that are indistinguishable from uniformly random functions to any
+polynomial time algorithm. That is, for every poly time algorithm A,
+P
+k f0;1gn
+AFk(1n)
+P
+Un
+AUn(1n)
+6whereUn:f0;1gn!f0;1gis a uniformly random function. PRFs can be constructed from one-
+way fucntions. Kearns and Valiant [KV94] constructed a hard to learn classication task using
+pseudorandom functions as follows:
+D0= (x;Fk(x)) and,D1= (x;1 Fk(x))
+The task essentially asks to eciently learn a predictor for the pseudorandom function which is
+dicult. To transform this task to one that is hard to learn robustly, while an ecient robust
+classier exists, we use error correcting codes. Recall that an error correcting code has two al-
+gorithms ( Encode;Decode ) where Encode returns a redundant encoding of the message that the
+Decode algorithm can eciently recovers the encoded message even when the encoded codeword is
+tampered adversarially to some degree. So, consider the following classication task: distinguish
+between error-corrected versions of the PRF:
+D0=Encode (x;Fk(x)) and,D1=Encode (x;1 Fk(x)):
+Note that this task has the following properties: (1) A robust classier exits and, (2) a robust
+classier is hard to learn. For the rst property, consider the following robust classier: the
+classier given the secret key, rst decodes the perturbed sample using the Decode algorithm and
+then checks if is of the form ( x;Fk(x)) or (x;1 Fk(x)) and outputs which case it is. The robustness
+follows from the error correcting code. The fact that no classier is learnable follows from the fact
+that the PRF is hard to predict, and thats exactly what the classier has to do. Finally, we want
+the task to be easy to classify non-robustly. Here we use the \BPR trick" ([BPR18]). That is, we
+additionally append to each sample a bit indicating which distribution it was sampled from. That
+is,
+D0= (0;Encode (x;Fk(x))) and,D1= (1;Encode (x;1 Fk(x))):
+Now the samples are easy to classify non-robustly, simply output the rst bit. Learning a robust
+classier is hard, for that, consider the perturbing adversary that erases the rst bit. For these
+samples, robust classication is identical to predicting the output of the PRF. This is dicult for
+any eciently learned classier. Hence, this gives us a task that that is easy to classify, has an
+ecient robust classifer and yet, any non-trivial robust classier is hard to learn.
+Note that because we have excellent error correcting codes, this recipe is maximally robust. We
+can pick a code that tolerates a constant fraction (1
+4 ") errors and still enable correct decryption
+[GI01]. This can be further boosted to (1
+2 ") by using list decoding instead of unique decoding
+and increasing the output size of the PRF to n-bits. We do not formally write this construction.
+3.4 Non-Existence of Robust Classiers from Average-Case Hardness
+This section describes a learning task for which no computationally ecient robust classier exists,
+even though inecient ones do, based on average-case hard functions, thus proving Theorem 2.1.
+Letg:f0;1gn!f0;1gbe a function that is average-case hard , such that no polynomial-
+time nonuniform algorithm can compute z7!g(z) noticeably better than random guessing. For
+example, taking gto be a random function f0;1gn!f0;1gsuces. Let ( Encode;Decode ) be a
+good error correcting code, capable of decoding from a constant fraction of errors. Now, construct
+distributions D0;D1as follows:
+D0= (0;Encode (x;g(x))) andD1= (1;Encode (x;1 g(x)))
+forx f0;1gnuniformly. Note that these distributions are trivially distinguishable non-robustly.
+However, with a perturbation adversary that destroys the rst coordinate, distinguishing D0from
+7D1essentially requires computing the function g(x), which cannot be done eciently. Thus, there
+is no ecient robust classier. Moreover, an inecient robust classier exists, since one can decode
+the error correcting code (correcting any adversarial errors) and compute g(x).
+When using an average-case hard function, one limitation here is that the algorithm generating
+the samples from distributions D0;D1is inecient. This can be remedied by using one-way func-
+tions, because generating D0;D1requires the algorithm to perform the simpler task of sampling
+(z;g(z)) for random z's, and not computing g(z) givenz, that the classier has to do. In fact,
+this is precisely the dierence between average-case NPhardness, which requires us to generate
+hard instances, and one-way functions, which require generating hard instances along with their
+solutions. See Section 3.4 for more details.
+3.5 From Hardness of Decoding under Noise.
+This section describes a proof sketch for Theorems 2.1 and 2.3. The problems Learning Parity with
+Noise (LPN) and Learning with Errors (LWE) have the following avor: In both the problems a
+random code C(overZ2in LPN, Zqfor a large prime in LWE) is specied by a matrix A:
+C=fsTAgor, the dual form C=fy:Ay=0g:
+Then the computational task is to distinguish a point close to the code from a uniformly random
+point in the space. The conjectured hardness of these problems can be used to construct a variety
+of cryptographic primitives. In the overview, we will describe the construction with the LPN
+assumption. The LWE construction is conceptually identical.
+The Classication Task. We begin by describing the classication task and then the rationale.
+The task consists of two distributions on samples D0;D1picked as follows: Pick a random linear
+code over Z2,C:f0;1gn!f0;1g8n, (described by the generator matrix Aor the parity check
+matrix H). Then,
+D0=fy:y Cgand,D1=fy+1:y Cg:
+So, the task is to distinguish codewords of Cfrom their ane shift ( 1represents the all-ones
+vector). The distributions are easy to classify non-robustly. There exists an inecient robust
+classier because the distance between the two codes CandC+1is large.
+To show that a robust classier is hard to learn, consider the perturbation adversary that adds
+random noise of varying size to the two distributions. Learning a robust classier for this adversary
+is equivalent to distinguishing LPN samples from random. Hence any computationally ecient
+adversary cannot classify these examples better than chance.
+Finally, we need to show that for a certain perturbation regime, no ecient robust classier
+exists while for a dierent perturbation regime, an ecient robust classier does exist. The latter
+is accomplished by the notion of \trapdoor sampling" where the code is sampled with a trapdoor
+that enables decoding noisy codewords (and hence robust classication too).
+Below we describe the example in more detail and give a sketch of the arguments needed.
+Formal proofs are given in Sections 5 and 6.
+LPN Assumption. The LPN hardness assumption states that: for m=poly(n),
+(A;sTA+eT) mod 2c(A;r) mod 2
+where A Znm
+2 describes a random code, the secret s Zn
+2is drawn unifomly at random and
+each coordinate of error e Ber(r)mdrawn from a Bernoulli distribution with error rate r, i.e.,
+probability of drawing 1 is r.
+8Hardness Regimes and Trapdoors. The key parameter which controls the hardness of LPN
+is the distance of the close point from the code in the appropriate norm.4As the distance increases,
+the problem becomes harder. In the case of LPN, this distance is approximately mrwhereris the
+error rate. For most non-trivial parameter settings of the distance parameter, these two problems
+arebelieved to be computationally intractable . That is, an ecient algorithm given a description of
+the random code cannot distinguish random points close to the code from random points in the
+space.
+Along with their conjectured computational hardness, we are interested in another property
+of these problems, the existence of a trapdoor : that is, can we sample the code along with some
+polynomial-size side information that lets us distinguish eciently random points from points close
+to the code. This information usually is a \short basis" for the dual code. The trapdoor property
+has two important regimes: the \public-key" regime and the \private-key" regime. In the case of
+LPN, the public-key regime corresponds to error rate r=O(1=pn) while the private-key regime
+translates to constant error rates, e.g., r= 0:1. The public key regime of parameters enables
+construction of advanced cryptographic primitives, including public key encryption. On the other
+hand, in the private-key regime, we know constructions of one-way functions and symmetric key
+cryptography, but not much more.
+Importantly for us, in \public-key" parameter regime, such a trapdoors exists and can be
+sampled eciently. On the other hand, in the private-key regime, it is conjectured that no such
+trapdoor exists. Traditionally this problem is studied as the problem of decoding linear codes with
+preprocessing (for LPN) and closest vector problem with preprocessing (for LWE). In the problem
+of decoding linear codes with preprocessing, an inecient algorithm Preprocess performs arbitrary
+preprocessing on the given linear code (described by the matrix A) and has to come up with a
+short polynomial-sized trapdoor for the code. Later the Decode algorithm has to use this trapdoor
+to eciently nd the codeword close to a given input. This problem and the closest vector problem
+(is the same problem, on lattices instead of codes) are NP-hard to approximate in the worst-case
+[BN90, Mic01, Reg04].
+We require an average-case variant of the problem termed as the hardness of LPN with Prepro-
+cessing . The assumption is stated more formally in Assumption 5.4. This assumption can be used
+to construct a task where no ecient robust classier exists. The task is very similar to the one
+below where a ecient robust classier exists but is hard to nd, except with higher levels of noise.
+More details in Section 5.
+Task with an Hard-to-Learn Ecient Robust Classier. We now turn to the problem
+of constructing learning tasks where an ecient robust classier exists, but is hard to learn. It
+consists of distinguishing between codewords ( D0=fsAg) from an ane shift of the codewords
+(D1=fsA+1gwhere 1is the all-ones vector). That is, for a random matrix A2Znm
+2 where
+m= 8n,
+D0=fsTA:s2f0;1gngand,D1=fsTA+1:s2f0;1gng
+We want to show that this task exhibits an ecient robust classier. For that, we need access to a
+trapdoor. In the case of LWE, such algorithms are known [GPV08] and proven to be exremely fruit-
+ful (see [Pei16] and references therein). This LWE trapdoor is a zero-one matrix Tf0;1gmm n
+overZqsuch that AT=0(modq). Because Tis a zero-one matrix, given any adversarially per-
+turbed sample ~y=sTA+eT, multiplying by Tresults in ~yT=eTTwhich is a vector with small
+entries in each coordinate. And this can be checked to distinguish LWE samples from random.
+4The specic norm is not crucial for the discussion below. Hamming is used for LPN while for LWE, the norm is
+obtained by embedding ZqinZasf bq=2c;:::0;1;:::bq=2cgand take the `1norm on Z.
+9In the case of LPN, we don't know how to perform such trapdoor sampling: where a uniformly
+random matrix Ais sampled along with such a trapdoor. Instead we rely on a computational
+variant of this. We can sample a matrix H2Zn8n
+2 that is indistinguishable from a random matrix
+along with such a \short" trapdoor: a matrix Ewhere each row and colum of Ehas hamming
+weightO(pm). See Lemma 5.5 for more details. This then allows for a similar construction. The
+perturbing adversary Pagain adds random noise, this time of a lower magnitude though.
+P(y) : Output ~y=y+ewheree Zm
+2;Ham=0:1pm:
+Note that earlier, we added 0 :1mbits of noise, instead here we are adding 0 :1pmbits. This
+level of noise places the problem in the \public-key" regime of parameters. Furthermore, given
+the trapdoor, in this case, we can recover which distribution the unperturbed sample was sampled
+from, giving us the required robust classier. See Section 5 for more details.
+Again, it is clear that learning a non-robust classier is easy. The hardness of LPN assumption
+implies that it is hard to learn a robust classier. This is in contrast to the previous construction
+where no ecient robust existed. Here, the trapdoor gives us an ecient robust classier, but
+the hardness of LPN implies that such a classier is hard to learn. In fact, any eciently learned
+classier cannot do better than chance.
+One thing to note is that this ecient robust classier is not \maximally robust", meaning
+that while an inecient robust classier can tolerate 0 :1mbits of noise and still classify correctly,
+the ecient classier can tolerate 0 :1pmbits of noise. This is similar in the case of LWE as well,
+where there is a gap between noise the trapdoor can support (about q=m in the`1norm) against
+the maximally robust limit (
+( q)). This is not surprising because decoding random linear codes is
+harder than decoding specically designed codes and hence the trapdoors do not achieve optimal
+decoding.
+A feature of this construction is that an ecient algorithm can learn to not only distinguish
+the samples from distributions D0andD1, it can easily learn to generate samples from the two
+distributions as well.
+Comparing Recipes. There are three key dierences between the recipes. The rst dierence
+is in the underlying hardness assumption. The rst two constructions are based on weaker assump-
+tions: namely general assumptions that one-way functions exist (or average-case hard function
+respectively) rather than the specic assumptions of LWE and LPN.
+The second dierence is that the distributions based on LWE/LPN facilitate learning in a
+stronger sense, that it is possible to sample from the non-robust distributions after seeing poly-
+nomially many samples. In construction I based on one-way functions, we do not learn either D0
+orD1in that strong sense. In fact, after seeing polynomially many samples, ecient sampling
+algorithms have no non-trivial advantage with the other recipes. As pointed out in in construction
+II, it is possible to support generation, albeit using a slightly stronger assumption that one-way
+functions exist.
+The third dierence is that of naturalness: we feel that the LWE/LPN recipe gives a more
+natural learning task. This is obviously a subjective notion. This learning task of distinguishing
+noisy codewords from random has existed independent of the notion of robust classication and
+arises naturally in other contexts.
+3.6 Converse: Cryptography from Hardness of Robust Classication.
+In this section, we describe how Theorem 2.4 is proved. The key result we rely on here is that we
+can construct one-way functions from any pair of samplable distributions that are statistically far
+10and computationally indistinguishable.
+Theorem 3.1. Given a pair of distributions (X0;X1) F overXthat are statistically far,
+i.e.,dTV(X0;X1)>0:9and computationally indistinguishable. That is for every polynomial time
+adversary Athat gets sample access to the distributions,
+E
+x X0A(X0;X1)(x) E
+x X1A(X0;X1)(x)<0:1
+Then one-way functions exist.5
+In order to construct such distributions, we rely on the learning task (given by ( D0;D1)) and
+the perturbation adversary P. The distributions we consider are
+X0=fP(x) :x D0gand,X1=fP(x) :x D1g:
+Note that because ecient robust classiers are hard to learn, no ecient algorithm A(that knows
+Pand gets access to the distributions D0;D1) can distinguish between the two distributions . On
+the other hand, because a robust classier exists, these two distributions are statistically far from
+each other. This implies that one-way functions exist.
+4 Denitions
+We use lowercase letters for values, uppercase for random variables, uppercase calligraphic letters
+(e.g.,U) to denote sets, boldface for vectors (e.g., x), and uppercase sans-serif (e.g., A) for algo-
+rithms (i.e., Turing Machines). We let polydenote the set all polynomials. A function :N![0;1]
+isnegligible , denoted(n) =negl(n), if(n)<1=p(n) for everyp2polyand large enough n. Given
+a random variable X, we writex Xto indicate that xis selected according to X. Similarly,
+given a nite set S, we lets S denote that sis selected according to the uniform distribution
+onS. For an algorithm A, we denote by x Athe experiment where xis sampled by feeding
+a uniformly random input to Afrom its input domain. We say that two families of distributions
+fXngn2NanfYngn2Narecomputationally indistinguishable (denoted byfXngcfYngorXcY
+for brevity) if for every polynomial time distinguisher D,
+jP
+x Xn[D(x)] P
+y Yn[D(y)]jnegl(n)
+4.1 Learning & Classication
+Denition 4.1 (Classication) .For a family of classication tasks FoverXis easy to classify
+if there exists a learning algorithm that given poly(n)i.i.d. samples from a pair of distributions
+(D0;D1)2F supported onX, outputs an eciently computable classier A:X!f 0;1gsuch that,
+P
+X Db[A(x) =b]0:99
+We want to consider other notions of learning distributions as well, in order to make more rened
+distinctions between learning distributions. The following denition for learnability of discrete
+distributions is from [KMR+94].
+5The constants in the equations are fairly arbitrary. We can replace them by any constants ;where> and
+the result holds (see [NR06, BDRV19]).
+11Denition 4.2. For a distribution Dover a discrete domain X,
+1.Generator. A circuit G:f0;1gm!X is an"-good generator forDif
+KL(DkG(U))"
+where G(U)denotes the distribution obtained by evaluating Gon a uniformly random input.
+2.Evaluator. A circuit E:X!R0is an"-good evaluator forDif
+KL(DkE)"
+where Edenotes the distribution obtained by sampling with probability density function E.
+Denition 4.3. A class of distributions F=fFngover a discrete domain X=fXngis(";)-
+eciently learnable with a generator (or evaluator resp.) if there exists a polynomial time algorithm
+Gen that given oracle access to any Dn2Fnruns in time poly(n;1=;1=")and outputs G(orE
+resp.) such that with probability 1 over the randomness of Gen and samples, G(Eresp.) is
+an"-good generator (evaluator resp.) of D.
+In our examples, we seek to nd distributions where the gap between ease of learning the actual
+distributions and that of the adversarially perturbed distributions is maximized.
+4.2 Hardness of Ecient Robust Classication
+We start by recalling the notion of robust classication. Then, we consider two ways of formalizing
+the diculty of ecient robust classication: (1) no eciently computable robust classier exists,
+(2) an ecient robust classifer exists, but it is hard to learn one eciently .
+Denition 4.4. Consider a classication task given by two distributions D0;D1overXn. Letkk
+be a norm over the space Xnand" >0. Let R:Xn!f0;1gbe a classier. The classier Ris
+"-robust if
+P
+X Db[R(~x) =bfor all ~x2B(x;")]0:99
+In the denition above, B(x;") is all points that are "distance from xin the given norm. Here,
+we will generally be concerned with Hamming distance and the `1norm.
+Denition 4.5 (Hardness of Robust Classication) .Consider a family of classication tasks,
+dened by two distributions D0,D1overXnsampled from a distribution over learning tasks Samp .
+Letkk be a norm over the space Xnand">0. We consider the following notions of diculty of
+robust classication:
+1.No ecient "-robust classier exists. There exists a polynomial-sized perturbation al-
+gorithm P, such that for every polynomial sized classier R, the perturbed samples are hard
+to classify. That is,
+P
+RD0;D1(~x) =b
+1
+2+negl(n)
+where the perturbed sample ~xis generated by sampling x Dbfor a random b f0;1gand
+is then perturbing ~x PD0;D1(x).
+122.Ecient"-robust classier is hard to learn. There exists a polynomial-sized pertur-
+bation algorithm P, such that every polynomial-time learning algorithm learn that outputs a
+polynomial sized classier R, the perturbed samples are hard to classify for R. That is, for
+a learning task D0;D1sampled by Samp and robust classifer R learnD0;D1(1n)output by
+learn ,
+P[R(~x) =b]1
+2+negl(n)
+where the perturbed sample ~xis generated by sampling x Dbfor a random b f0;1gand
+is then perturbing ~x PD0;D1(x). The probability is over the entire experiment from sampling
+the learning tasks to the randomness of the perturbation algorithm and the classier.
+Discussion. An alternate denition of hard to classify robustly would be the negation of robust
+classication. That denition takes a following form:
+P
+x Db[9~x2B(x;") such that, R(~x)6=b]0:5
+This denition is unsatisfactory because it does not say anything about how dicult it is to nd
+such perturbations. In the event when such examples are not eciently discoverable, we do not
+have to worry about these.
+In the denitions used, the perturbing adversary is both ecient and universal. Eciency is a
+very natural property to have, in that if the adversarial examples are computationally hard to nd,
+then they are less of a concern. The universality property says that there is a single perturbation
+adversary that succeeds against all ecient classiers. This is a strong requirement. This makes
+our robustly hard to learn tasks better: that they have a unique perturbation adversary that is
+independent of which classication algorithm is used. On the other hand, it makes our converse
+results constructing one-way functions from hard to learn robust tasks weaker, because they only
+hold for such robustly hard to learn tasks, with universal perturbation adversaries.
+It is possible to have a perturbation adversary Pthat is ecient but not universal. The pertur-
+bation adversary gets oracle access to the classier and has to then output a misclassied example.
+This is a weaker requirement than Denition 4.5. We do not know if such a denition also implies
+cryptography.
+5 Learning Parity with Noise
+5.1 Assumption Denition and Discussion
+LetZm
+2;Ham=tdenote vectors in Zm
+2with Hamming weight exactly t. We will consider Hamming
+weight as our norm in this setting.
+Denition 5.1 (Learning Parity with Noise Problem (LPN)) .Forn;m;t2N, an LPN sample is
+obtained by sampling a matrix A Znm
+2, a secrets Zn
+2, and an error vector 2Zm
+2;Ham=tand
+outputting (A;sTA+eT).
+We say that an algorithm solves LPNn;m;t if it distinguishes an LPN sample from a random
+sample distributed as Znm
+2Z1m
+2.
+Assumption 5.2 (Learning Parity with Noise Assumption) .The Learning Parity with Noise
+(LPN) assumption assumes that for m=poly(n)andt=(m=pn), the LPN samples are in-
+distinguishable from random. That is, for every ecient distinguisher D,
+P
+s Zn
+2
+e Zm
+2;Ham=t
+D(A;sTA+eT) = 1
+ P
+r Zm
+2[D(A;r) = 1]<negl(n)
+13This regime of parameters m=poly(n) andt=(m=pn) is what is traditionally used to
+construct public key encryption from the LPN assumption. Next, we consider the LPN problem
+with preprocessing: in this variant of the problem, an inecient algorithm Preprocess is allowed
+to process the matrix Aarbitrarily to construct a \trapdoor". Then the distinguisher is asked to
+distinguish LPN sample ( A;sTA+e) from random. The assumption states that this is dicult
+for higher error rates.
+Denition 5.3 (LPN with Preprocessing Problem (LPNP)) .We say that a pair of algorithms
+(Preprocess;D)where Preprocess is possibly inecient and Dis ecient, solves LPNn;m;t ifDcan
+distinguish an LPN sample from a random sample given the trapdoor trap generated by Preprocess (A).
+The Learning Parity with Noise problem is hard even with preprocessing in the constant noise
+regime.
+Assumption 5.4 (LPN with Preprocessing (LPNP)) .Letm=poly(n)andt=rmfor any con-
+stantr. For every pair of algorithms (Preprocess;D)with a possibly inecient algorithm Preprocess
+and ecient D, the following experiment is performed: Sample A Znm
+2 and get trap 
+Preprocess (A). Then, the distinguisher Dgiven trap cannot distinguish the LPN samples from
+random. That is for large enough n,
+P
+s Zn
+2
+e Zm
+2;Ham=t
+D(trap;A;sTA+eT) = 1
+ P
+r Zm
+2[D(trap;A;r) = 1]<negl(n)
+where the probability is over the code A,s;e;rand the randomness of the distinguisher D.
+Discussion. The most important parameter of the LPN problem is its error rate, that is r=t=m.
+The higher the error rate, the more dicult the problem. There are two important regimes of the
+error rate:ris a constant and r=o(1pn). When the error rate is a constant, the hardness of LPN in
+this regime implies one-way functions and hence symmetric key cryptography. We do not know how
+to base public key encryption on error rates in this regime. When the error rate decreases below
+O(1pn), we can construct public key encryption from this problem. For error rates below log n=n,
+the problem becomes easy. The best known algorithms for solving LPN are due to Blum Kalai
+and Wasserman [BKW03] which solves LPN in time 2O(n=logn)requiring 2O(n=logn)samples; and
+Lyubashevsky [Lyu05] which solves LPN in time 2O(n=log logn)with polynomially many samples.
+For structured LPN samples, more ecient algorithms are known [AG11]. Our error distributions
+are not structured.
+Note that the lesser used variant of LPN is used here, in that we insist that the Hamming weight
+of the error vector is exactly tinstead of a random variable. This is equivalent to the standard
+formulation [JKPT12].6This is done for convenience and the example can be translated to the
+denition of LPN where the error vector is drawn from a product distribution.
+We also consider a the preprocessing variant of Learning Parity with Noise. In this variant, the
+adversary is allowed to preprocess the code and generate a small \trapdoor" to the code. Then an
+ecient adversary is tasked with distinguishing the LPN samples from random. The preprocessing
+variant of LPN assumption states that even this is hard in the constant error regime, that is when
+t=m is a constant. It is known that decoding linear codes is NP-hard in the worst case [BN90].
+The search analog of LPN is precisely the average-case variant of this question and is conjectured
+to be hard in the regime of constant noise rate.
+6In the search version of the problem where the adversary has to nd sgivenA;sTA+eT, these two versions
+are equivalent as ttakes polynomially many values, hence we can go over all polynomially-many and try solving each
+exact version).
+14Trapdoor for Ecient Decoding. In the public key regime, we want to show that trapdoors
+exist that enable eent distinguishing of LPN samples. We state the result next: that there is a
+way to sample a random matrix Hthat is indistinguishable from a random matrix such that it has
+a trapdoor that enables ecient distinguishing.
+Lemma 5.5 (Computational Trapdoor Sampling) .Consider the following algorithm LPNTrapSamp
+such that, LPNTrapSamp on input (n;t)witht=(pn)does the following:
+LPNTrapSamp (n;t):
+1. Sample A Znm
+2,S Znn
+2 andE2Znm
+2 wheree(i;) Zm
+2;Ham=t.
+2. Output H=A
+SA+E
+;E
+The algorithm has the following properties:
+1.rowspan( E)rowspan( H)where rowspan( T) =fsT:s2Zn
+2g.
+2. The matrix His computationally indistinguishable from uniformly random matries. That is,
+fH LPNTrapSamp (n;t)gc
+U Z2n8n
+2	
+3. With overwhelming probability over the randomness of the algorithm, it outputs Esuch that
+every column of Ehas Hamming weight at most tand every row of Ehas Hamming weight
+exactlyt.
+The notion of Trapdoor sampling is very widely used in the context of learning with errors
+assumption. A trapdoor sampling algorithm samples along with the public matrix Awhich is
+statistically close to a random matrix (representing the code/lattice), a secret \trapdoor". This
+trapdoor enables solving the bounded distance decoding problem, that is given a point close to a
+codeword in the code, nds the close codeword. As we know, without this trapdoor, this problem
+is conjectured to be hard. But the trapdoor enables solving this problem.
+We have a computational analog of that property for LPN in the \public-key" regime of param-
+eters. We construct that below. Because Eis a sparse matrix, it can be used to solve the problem
+of distinguishing LPN samples from random and decoding noisy codewords.
+Proof. By denition, rowspan( E)rowspan( H) and that each row of Ehas Hamming weight
+exactlyt. We need to show that His indistinguishable from random and that every column of
+Ehas at most tones. The former follows from the Learning Parity with Noise combined with a
+hybrid argument and the latter from a Cherno bound.
+Claim 5.5.1. The output distribution of His computationally indistinguishable from uniform.
+That is,
+fH LPNTrapSamp (n;t)gc
+U Z2n8n
+2	
+Proof. Observe that the LPN assumption can be restated as, The LPN assumption assumes that
+the following two distributions are indistinguishable:
+A
+sTA+eT
+cn
+U:U Z(n+1)m
+2o
+wheres Zn
+2,A Znm
+2,e2Zm
+2is a random vector of Hamming weight t. The claim then
+follows by applying a hybrid argument to each of the rows of SA+Eand replacing them by random
+vectors, by viewing them as s(i;)A+e(i;)wheres(i;);e(i;)denote the i-th row of matrix SandE
+and using the LPN assumption.
+15Claim 5.5.2. Lete(;j)denote thej-th column of matrix E. Then,
+P
+E LPNTrapSamp (n;t)
+9j;such that,ke(;j)kHam>t
+<8ne 7t
+24:
+Proof. The proof follows from Cherno bound and a union bound. For any xed column j, each
+coordinate ei;j= 1 independently with probability t=8nwhere the probability is over i. Hence, for
+any column j, the expected Hamming weight ist
+8nn=t
+8. By a Cherno bound, we can observe
+the following:
+P
+E LPNTrapSamp (n;t)"X
+iei;j>t#
+= P
+E LPNTrapSamp (n;t)"X
+iei;j>(1 + 7)E(X
+iei;j)#
+e 7t
+81
+3
+where the inequality follows from the Cherno bound in the following form: Let X1;X2;:::Xnbe
+independent random variables taking values in f0;1g. LetXbe their sum and =EX. For any
+1,
+P[X(1 +)]e 
+3:
+A union bound over all jgives us the required bound.
+Becauset=pn, the failure probability is negligible.
+5.2 No Ecient Robust Classier Exists
+Next, we describe a learning task where while it is possible to ineciently perform robust classi-
+cation, no ecient robust classier exists.
+Theorem 5.6. For ann, letm= 8n;t= 2n 1;"= 2n. Consider the following learning task. Let
+A Zmn
+2. DeneD0;D1as:
+D(A)
+0=
+sTA:s f0;1gn	
+and,D(A)
+1=
+sTA+1:s f0;1gn	
+:
+The learning task has the following properties.
+1. (Learnability) A classier to distinguish D0fromD1can be learned from the samples e-
+ciently. Furthermore, it is easy to learn a generator/ evaluator for these distributions.
+2. (No Ecient Robust Classier Exists) There exists a perturbation algorithm Psuch that there
+exists no ecient robust classier Rsuch that,
+P
+R(~y)2R 1(b)
+0:5 +negl(n)
+where the perturbed sample ~yis generated by sampling y Dbfor a random band is then
+perturbing ~y PD0;D1(y)such thatky ~yk".
+Proof. Learnability of this task is trivial. Given enough samples, the entire subspace spanned by
+Ais learned and can be sampled from.
+In order to show that no ecient robust classier exists for "= 2n, we rely on the diculty of
+LPN with Preprocessing (Assumption 5.4). Consider the following perturbing adversary P:
+P(y) : Output ~y=y+ewheree Zm
+2;Ham=t
+16Consider the following pair of algorithms Preprocess;D:Preprocess (A) ineciently nds the best
+possible ecient robust classier Rand returns that as the trapdoor trap=R. The distinguisher
+Dsimply runs the robust classier Rand returns the answer. It can do this in polynomial time
+because Ris also polynomial time computable.
+The LPNP assumption implies that for this pair of algorithms ( Preprocess;D), LPN is hard to
+solve. That is, for A Znm
+2;R Preprocess (A),
+P
+s Zn
+2
+e Zm
+2;Ham=t
+R(A;sTA+eT) = 1
+ P
+r Zm
+2[R(A;r) = 1]<negl(n) (1)
+Now a hybrid argument nishes the proof as the following distributions are computationally indis-
+tinguishable for R:
+(A;sTA+eT)c(A;r)(A;r+1)c(A;sTA+eT+1)
+where the twocstatements follow from Eq. (1) and the follows from the fact that adding any
+xed vector to the uniform distribution still remains uniform.
+This completes the argument.
+5.3 Ecient Robust Classier Exists but is Hard to Learn
+In this section, we describe a learning task where a robust classier exists, but it is hard to learn.
+Consider the following classication task : Given a matrix H2Z2n8n
+2 , deneD0;D1as:
+D(H)
+0=
+y2Z8n
+2:Hy= 0 mod 2	
+and,D(H)
+1=
+y+12Z8n
+2:Hy= 0 mod 2	
+where both are uniform distributions on the sets and 1is the all ones vector on 8 ndimensions.
+Theorem 5.7. For ann, lett= 2bpn=6c 1, such that tis odd. Consider the following learning
+task. Let (H;E) LPNTrapSamp (n;t). Given a matrix H2Z2n8n
+2 , deneD0;D1as:
+D(H)
+0=
+y2Z8n
+2:Hy= 0 mod 2	
+and,D(H)
+1=
+y+12Z8n
+2:Hy= 0 mod 2	
+The learning task has the following properties.
+1. (Learnability) A classier to distinguish D0fromD1can be learned from the samples e-
+ciently. Furthermore, it is easy to learn a generator/ evaluator for these distributions.
+2. (Existence of an Ecient Robust Classier) There exists an ecient robust classier Rsuch
+that,
+P
+y Db
+B(y;")2R 1(b)
+0:99
+where"=bpncandB(y;") =fy0:ky y0kHam"g.
+3. (Unlearnability of Robust Classier) There exists a perturbation algorithm such that no e-
+ciently learned classier can classify better than chance.
+We drop Hfrom the notation to avoid clutter and denote the distributions as D0;D1. Here H
+functions as the parity check matrix of the code D0andD1is a shift of the code. Observe that
+Part (1): distinguishing between D0andD1is easily done by Gaussian elimination.
+We want to show that (2) a robust classier exists, and, (3) it is dicult to nd any robust
+classier eciently. We argue this in the subsequent claims.
+17Lemma 5.8 (Existence of Robust Classier) .Consider the following robust classier:
+Robust Classifer R E(~y):
+1. Computez=E~ymod 2 .
+2. IfkzkHamnoutput 0otherwise, output 1.
+Then, the following holds:
+P
+y Db[R(~y) =bfor all ~y2B(y;")]0:99
+for"=bpncandB(y;") =fy:k~y ykHam"g.
+Proof. The correctness of the robust classier follows from the fact that Eis a sparse matrix where
+each column has Hamming weight at most t. Consider the case when y D0, the other case is
+analogous. Observe that,
+~y=y+mod 2
+wherekkHam"pn. Hence,
+E~ymod 2 = E(y+) =E(mod 2)
+where the second equality follows from the fact that Hy= 0 mod 2 and that rowspan( E)
+rowspan(H). Observe that each column of Ehas at most tones and that the Hamming weight of
+is at most". As, E=P
+j:j=1e(;j), we can bound the Hamming weight kEkHamtkkHam
+t"n=3. Hence the classier would always correctly classify adversarially perturbed samples
+fromD0.
+In the other case when b= 1 observe that E1=1because each row of Ehas Hamming weight
+twhich is odd. Hence the Hamming weight of zis at least 2 n n=3>nin this case and would be
+classied correctly. This proves that a robust classier exists.
+Lemma 5.9 (Hardness of Learning a Robust Classier) .There exists a perturbation algorithm
+Psuch that for every polynomial time learner L, the learner Lhas no advantage over chance in
+classifying examples perturbed by P. That is,
+P2
+664H;E LPNTrapSamp (n;t);
+y D(H)
+bwhereb f0;1g
+~y PD0;D1(y);
+b0 LD0;D1(~y):b=b03
+7751
+2+negl(n)
+Proof. This proof is identical to the proof of security of Aleknovich's public key encryption scheme
+[Ale03].
+Observe that D0;D1are completely specied by the matrix H. So, the learner gets Hinstead
+of sample access. Consider the following random perturbation algorithm P:
+P(y) : Output ~y=x+, where Zm
+2;Ham=t
+where Zm
+2;Ham=tis the distribution on vectors of Hamming weight t. This adversary is adding
+allowable amount of error as t<" =pn.
+Suppose an ecient learner Lexists that can succeed in this game with high probability, we can
+break the learning parity with noise assumption. This is done in two steps. In the rst step, we
+replace the parity check matrix Hwith a uniformly random matrix H0this should not noticeably
+change the success probability because the two distributions are indistinguishable. In the second
+18step, now observe that H0is a uniformly random parity check matrix hence gives rise to a random
+code. Now we can apply the LPN assumption again, this time to replace the error by a uniformly
+random vector and not noticably change the success probability. This is a contradiction.
+6 Learning with Errors
+6.1 Preliminaries
+In this section, we dene the learning with errors problem and describe the notion of trapdoor
+sampling that it supports. In this section, the norm used is the `1norm obtained by embedding
+ZqinZ. That is, for vectors x;y2Zn
+q,kx yk= maxijxi yijwherejzjforz2Zqis obtained
+by embedding z2f bq=2c;:::; 1;0;1;:::bq=2cgand taking the absolute value.
+Denition 6.1 (Learning with Errors Problem) .Forn;m2Nand modulus q1, distribution
+for error vectors Zq, a Learning with Errors (LWE) sample is obtained by sampling s Zn
+q,
+A Znm
+q,e mand outputting (A;sTA+eTmodq).
+We say that an algorithm solves LWEn;m;q; if it distinguishes LWE sample from a random
+sample distributed as Znm
+qZ1m
+q.
+Assumption 6.2 (Learning with Errors Assumption) .The Learning with Errors (LWE) assump-
+tion assumes that for m=poly(n),q= 
+(n3)andis truncated discrete gaussian over Zqwith
+standard deviation q=n2truncated to q=2n, the LWE samples are indistinguishable from random.
+That is, for every ecient distinguisher D,
+P
+s Zn
+2
+e Zm
+2;Ham=t
+D(A;sTA+eT) = 1
+ P
+r Zm
+2[D(A;r) = 1]<negl(n)
+We have written specic versions of the LWE assumption. LWE is conjectured to be hard for
+a large setting of parameters. For a discussion on parameters, see [Pei16].
+Denition 6.3 (LWE with Preprocessing Problem (LWEP)) .We say that a pair of algorithms
+(Preprocess;D)where Preprocess is possibly inecient and Dis ecient, solves LWEn;m;t ifDcan
+distinguish an LWE sample from a random sample given the trapdoor trap generated by Preprocess (A).
+The Learning Parity with Noise problem is hard even with preprocessing in the constant noise
+regime. We state the assumption below formally.
+Assumption 6.4 (LWE with Preprocessing (LWEP)) .Letm=nlogq+ 2n;q=n3andis a
+discrete Gaussian with standard deviation q=100truncated to q=10. For every pair of algorithms
+(Preprocess;D)with a possibly inecient algorithm Preprocess and polynomial time D, the following
+experiment is performed: Sample A Znm
+2 and get trap Preprocess (A). Then, the distinguisher
+Dgiven trap cannot distinguish the LPN samples from random. That is,
+P
+s Zn
+2
+e Zm
+2;Ham=t
+D(trap;A;sTA+eT) = 1
+ P
+r Zm
+2[D(trap;A;r) = 1]<negl(n)
+Denition 6.5 (Lattice Trapdoor) .For a matrix A2Znm
+q, we denote by L?thedual lattice of
+Acomposed of all vectors in the kernel of A:
+L?=fx2Zm:Ax= 0 modqg
+Atrapdoor forAis a short basis for the lattice L?(A).
+19In the case of LWE, it is known that we can sample matrices Afrom a distribution statistically
+close to uniformly random along with a trapdoor which allows for ecient distinguishing and
+recovering the lattice point from a noisy one, for close distances (this is referred to as bounded
+distance decoding).
+Theorem 6.6 (Trapdoor Sampling [GPV08]) .There exists an algorithm TrapSamp such that,
+TrapSamp on input (q;m;n )wheremnlogq+ 2noutputs a pair of matrices (A;T)where
+A2Znm
+q,T2Zmnlogq
+q , with the following properties:
+AT=0modq.
+The output distribution of Ais statistically close to uniform (total variation distance <
+2 O(n)).
+Thas only zero-one entries.
+6.2 No Ecient Robust Classier Exists
+In this section we describe a learning task based on LWE that has no robust classier. This is
+identical to the LPN based task except the noise distribution is set dierently.
+Theorem 6.7. For anyq=n3andm=nlogq+ 2n, andis a discrete Gaussian with standard
+deviationq=100truncated to q=10. Consider the following learning task. Let A Zmn
+q. Dene
+D0;D1as:
+D(A)
+0=
+sTA:s f0;1gn	
+and,D(A)
+1=
+sTA+q
+2:s f0;1gn
+:
+The learning task has the following properties.
+1. (Learnability) A classier to distinguish D0fromD1can be learned from the samples e-
+ciently. Furthermore, it is easy to learn a generator/ evaluator for these distributions.
+2. (No Ecient Robust Classier Exists) There exists a perturbation algorithm Psuch that there
+exists no ecient robust classier Rsuch that,
+P
+R(~y)2R 1(b)
+0:5 +negl(n)
+where the perturbed sample ~yis generated by sampling x Dbfor a random band is then
+perturbing ~x PD0;D1(x)such thatky ~ykq=10.
+The proof is identical to the LPN case, with the perturbation adversary Pinstead adding noise
+distributed according to m.
+6.3 An Ecient Robust Classier Exists but is Hard to Learn
+We dene the classication task ( D0;D1) as follows: Given a matrix A2Znm
+q consider distribu-
+tionsD0andD1dened as:
+D(A)
+0=
+sTA:s2Zn
+q	
+and,D(A)
+1=n
+sTA+q
+21T:s2Zn
+qo
+:
+where both are uniform distributions on the sets and 1is the all ones vector on mdimensions. We
+dropAfrom the notation to avoid clutter and denote the distributions as D0;D1.
+20Hence, the task consists of distinguishing lattice vectors from an ane shift of the lattice.
+That is, given a vector x2(D0[D1), classify weather x2D0orx2D1. Gaussian elimination
+accomplishes this task easily. We want to show that (a) a robust classier exists, and, (b) it is
+dicult to nd any robust classier eciently. We argue this based on the learning with errors
+assumption.
+At the heart of the construction is the idea of lattice trapdoors. For a matrix A2Znm
+q,
+the trapdoor is a \short" matrix Tsuch that AT=0modq. There are two key properties of
+these trapdoors that we leverage: (1) This short matrix allows us to solve the \bounded distance
+decoding (BDD)" problem : that is, given a vector close to the lattice, nd the closest lattice vector
+eciently. Hence, the trapdoor functions as a robust classier. Also, we can eciently sample a
+random matrix Atogether with such a trapdoor. (2) It is hard to nd such a trapdoor given the
+matrix A, even when it exists, because these trapdoors allow us to solve the Learning with Errors
+problem. This allows us to show that the robust classier is hard to learn.
+Theorem 6.8. For anyq=n3andm=nlogq+ 2n, consider the following learning task. Let
+(A;T) TrapSamp (n;m;q ). Given a matrix A2Znm
+q, deneD0;D1as:
+D(A)
+0=
+sTA:s2Zn
+q	
+and,D(A)
+1=n
+sTA+q
+21T:s2Zn
+qo
+:
+The learning task has the following properties.
+1. (Learnability) A classier to distinguish D0fromD1can be learned eciently.
+2. (Existence of Robust Classier) There exists a robust classier Rsuch that,
+P
+y Db
+B(y;q=4m)2R 1(b)
+0:99
+whereB(y;") =fy02Zm
+q:ky y0k1"g.
+3. (Unlearnability of Robust Classier) There exists a perturbation algorithm such that no e-
+ciently learned classier can classify better than chance.
+Lemma 6.9 (Existence of a Robust Classier) .Consider the following robust classier R:
+Robust Classifer R T(~y):
+1. Computez=~yTTmodq.
+2. Ifz2 q
+4;:::;q
+4	noutput 0otherwise, output 1.
+Then,
+P
+x Db[R(~x) =bfor all ~x2B(x;q=4m)]0:99
+Proof. The correctness of the robust classier follows from the fact that Tis a zero-one matrix and
+that the errors are bounded in size. Consider the case when y D0, the other case is analogous.
+Observe that,
+~y=y+emodq=sTA+eTmodq
+wherekek1q
+4m. Hence,
+~yTTmodq= (sTA+eT)Tmodq=eTTmodq
+AsThas only zero-one entries, eTTis bounded over integers with the absolute value of each
+coordinate being at most mkek1q
+4. This implies that the robust classier would correctly
+output 0 when given perturbed samples from D0.
+21In order to show that it is dicult to recover the robust classier, we rely on the learning with
+errors assumption. We consider a perturbation adversary that simply adds random noise to the
+sample it receives.
+Lemma 6.10 (Hardness of Learning a Robust Classier) .There exists a perturbation algorithm
+Psuch that for every polynomial time learner L, the learner Lhas no advantage over chance in
+classifying examples perturbed by P. That is,
+P2
+664A;T TrapSamp (n;m;p );
+x D(A)
+bwhereb f0;1g
+~x PD0;D1(x);
+b0 LD0;D1(~x):b=b03
+7751
+2+negl(n)
+Proof. Observe that D0;D1are completely specied by the matrix Aand given Acan be sampled
+eciently. So, it suces to give the learner Ainstead of sample access. Consider the following
+random perturbation algorithm P:
+P(x) : Output ~x=x+e, wheree m:
+So, the experiment above is equivalent to the following:
+P2
+4A;T TrapSamp (n;m;p );
+s Zn
+q;e m;b f0;1g
+b0 L(A;sTA+eT+bq
+21T):b=b03
+51
+2+negl(n)
+The cruical observation is that the learner's job is to distinguish LWE samples ( A;sTA+eT) from
+shifted LWE samples ( A;sTA+eT+q
+21T). The LWE assumption implies that this is dicult
+because the two distributions are indistinguishable. That is,
+(A;sTA+eT)c(A;rT)c(A;sTA+eT+q
+21T)
+and hence no ecient adversary Lcan distinguish between the distribution when b= 0 from when
+b= 1. And hence for any ecient adversary, the success probability of classifying these perturbed
+instances is negligibly close to a half, as desired.
+Hence, we have described a learning task that is learnable, has a robust classier, but robust
+classiers are computationally hard to learn.
+7 Using Pseudorandom Functions and Error Correcting Codes
+In this section, we formally describe the hard-to-robustly learn task based on one-way functions.
+There are two main ingredients that we use to construct the learning task: Error Correcting Codes
+(ECCs) and Pseudorandom Functions (PRFs).
+An uniquely decodable binary error correcting code allows encoding messages to redundant
+codewords such that from any codeword perturbed to some degree, we can recover the encoded
+message.
+Denition 7.1 (Uniquely Decodable Error Correcting Code) .An uniquely decodable binary error
+correcting code, C:f0;1gn!f0;1gmconsists of two ecient algorithms Encode;Decode . The
+code tolerates error fraction eif for all messages x2f0;1gn,
+Decode (~y) =xfor all ~y2B(Encode (x);em)
+whereB(Encode (x);em)denotes the Hamming ball of radius em.
+22We know very good error correcting codes.
+Theorem 7.2 ([GI01]) .For any constant  > 0, there exists a binary error correcting code C:
+f0;1gn!f0;1gmwherem=O(n=3)with a decoding radius of (1
+4 )mwith polynomial time
+encoding and decoding.
+We will use this coding scheme with = 1=8 giving us an error correcting code C:f0;1gn!
+f0;1gmwherem=(n) and tolerates m=8 errors for unique decoding.
+Apseudorandom function is a keyed function Fk:f0;1gn 1!f0;1gwhere the secret key is
+picked uniformly random such that, for every ecient adversary, the output of the function is
+indistinguishable from the output of a random function. A more formal denition is given below.
+It is known that pseudorandom functions can be constructed from one-way functions.
+Denition 7.3 ([GGM86]) .A family of polynomial-time computable functions F=fFngwhere
+Fn=fFk:f0;1gn!f0;1ggwherek2f0;1gnandn2Nispseudorandom if every polynomial
+time computable adversary Acannot distinguish between Fand uniformly random function. That
+is, P
+k f0;1gn
+AFk(1n) = 1
+ P
+Un Un
+AUn(1n) = 1<negl(n)
+whereUnis the uniform distribution over all functions from f0;1gntof0;1g.
+Theorem 7.4 ([GGM86]) .Pseudorandom functions exist if one-way functions exist.
+Next, we informally describe the learning task. Consider the following learning task: The two
+distributions D0;D1are parameterized by the PRF key kand dened as follows:
+D0= (0;Encode (x;Fk(x))) and,D1= (1;Encode (x;1 Fk(x))):
+So, the two distributions are tuples where the rst half is which distribution the sample was taken
+from and the second an error correcting code applied to the tuple ( x;Fk(x) +b), that is, either the
+PRF evaluation at the location xor its complement. Note that without the rst bit, classifying
+the original distributions is computationally infeasible. The pseudorandom function looks random
+at every new location. Including the bit in the sample itself makes the unperturbed classication
+task easy. The error correcting code ensures that we have a robust classier.
+Theorem 7.5. LetfFkgforFk:f0;1gn 1! f0;1gbe a pseudorandom function family and
+C:f0;1gn!f0;1gmwherem=(n)be an eciently decodable error correcting code with decoding
+algorithm Decode that tolerates m=8errors.
+Consider the following learning task. For a random pseudorandom function key k, dene:
+D(k)
+0=
+(0;C(x;Fk(x))) :x f0;1gn 1	
+and,D(k)
+1=
+(1;C(x;1 Fk(x))) :x f0;1gn 1	
+supported onf0;1gm. The learning task has the following properties.
+1. (Easy to Learn) A classier to distinguish D0fromD1can be learned from the samples
+eciently.
+2. (Robust Classier Exists) There exists a robust classier Rsuch that,
+P
+y Db
+B(y;m= 8)2R 1(b)
+0:99
+wherem=8is the decoding radius and B(y;d) =fy0:ky y0kHamdg.
+233. (A Robust Classier is hard-to-learn) There exists a perturbation algorithm such that no
+eciently learned classier can classify perturbed adversarial examples better than chance.
+Proof. To prove Part (1) consider the classier that outputs the rst bit. It works correctly on
+instances from the distributions. To prove Part (2), we rely on the decoding algorithm. After
+d=m=8 edits to the sample, we can recover the underlying message by ignoring the rst bit of the
+tuple and decoding the rest to get the underlying message of the form ( x;c) and then use the PRF
+to classify. More formally, consider the following robust classifer:
+Robust Classifer R k(~y)where ~y2f0;1gm+1:
+1. Let (x;c) =Decode (~y2:m+1) where ~y2:m+1are all of ~ybut the rst bit.
+2. Output 0 if c=Fk(x) else output 1.
+Observe that error correcting code ensures that from every perturbed sample, we eciently
+recover the encoded message. And then because the message is of the form ( x;Fk(x) +b) for class
+b, this allows for correct classication.
+To show Part (3), we rely on the unlearnability of the PRF. Consider a perturbing adversary
+that replaces the rst bit of the sample by 0. Classication is now equivalent to predicting Fk(x)
+givenx. Because predicting Fk(x) is computationally infeasible to learn, so is a robust classier.
+Note that, compared to the previous counter-examples, this example does not rely on public
+key assumptions. The reason for that is that the samples here are \evasive". In that there is no
+way to generate fresh samples from the two distributions. So, we cannot translate this to a public
+key encryption scheme because to encrypt, we need a samples from the distributions D0;D1along
+with the perturbing adversary and we do not have access to these samples.
+The hardness of this task comes from the hardness of learning the PRF and not from the
+perturbations. This is dierent from the schemes based on LPN and LWE.
+8 Using Average-Case Hardness and Error Correcting Codes
+In this section, we formally state Theorem 2.1 and provide the proof outlined in Section 3.4. We
+also give an alternative construction that relies on one-way-permutations, but yields a classication
+problem with distributions that are eciently samplable.
+We rst need the notion of an average-case hard function.
+Denition 8.1 (Average-Case Hard) .A boolean function g:f0;1gn!f0;1gis(s;)-average-case
+hard if for all non-uniform probabilistic algorithms Arunning in time s,
+P
+A;x2f0;1gn[A(x)6=g(x)]
+There exists functions gwhich are (2(n);1=2 2 (n))-average-case hard (a random function
+gwill suce with constant probability).
+Theorem 8.2. Letg:f0;1gn!f0;1gbe a function that is (2(n);1=2 2 (n))-average-case hard,
+and let Encode :f0;1gn+1!f0;1gmwherem=(n)be an eciently decodable error correcting
+code with decoding algorithm Decode that tolerates m=8errors.
+Consider the following classication task. Dene:
+D0=f(0;Encode (x;g(x))) :x f0;1gngandD1=f(1;Encode (x;1 g(x))) :x f0;1gng
+This classication task has the following properties.
+241. (Easy to Classify) An ecient classier to distinguish D0fromD1exists.
+2. (Robust Classier Exists) There exists a inecient robust classier Rsuch that,
+P
+y Db
+B(y;m= 8)2R 1(b)
+0:99
+wherem=8is the decoding radius and B(y;d) =fy0:ky y0kHamdg.
+3. (No Ecient Robust Classier Exists) There exists a perturbation algorithm Psuch that there
+exists no polynomial-time robust classier Rsuch that,
+P
+R(~y)2R 1(b)
+0:5 +negl(n)
+where the perturbed sample ~yis generated by sampling y Dbfor a random band is then
+perturbing ~y PD0;D1(y)such thatky ~yk".
+Proof. This proof closely follows the proof of Theorem 7.5. For Part (1), the classier that simply
+outputs the rst bit is always correct. For Part (2), we can robustly classify by using the error
+correcting code to recover the message ( x;g(x)) or (x;1 g(x)), and then we can compute the
+functiongto distinguish between these cases. Specically, the robust classier is identical to the
+one presented in the proof of Theorem 7.5, but computing the function ginstead ofFk(x). For Part
+(3), we rely on the average-case hardness of g. Consider the perturbation adversary that replaces the
+rst bit of the sample by 0. Now, classifying D0vsD1with non-negligible advantage is equivalent
+to predicting g(x) givenxwith non-negligible advantage. This is impossible in polynomial time by
+the average-case hardness of g, and thus ecient robust classication is impossible.
+We now describe how to achieve the above properties with distributions that are eciently
+samplable. First, recall the notion of a hard-core bit : Letf:f0;1gn!f0;1gnbe a one-way
+function. A predicate b:f0;1gn!f0;1gis ahard-core bit for fif for all probabilistic polynomial-
+time algorithms A,
+P
+x f0;1gn[A(f(x)) =b(x)]1
+2+negl(n)
+The construction is as follows.
+Theorem 8.3. Letf:f0;1gn!f0;1gnbe a one-way permutation, and let b:f0;1gn!f0;1gbe
+a hard-core bit for f. Let Encode :f0;1gn+1!f0;1gmwherem=(n)be an eciently decodable
+error correcting code with decoding algorithm Decode that tolerates m=8errors.
+Consider the following classication task. Dene:
+D0=f(0;Encode (f(x);b(x))) :x f0;1gngandD1=f(1;Encode (f(x);1 b(x))) :x f0;1gng
+This classication task has the following properties.
+1. (Easy to Classify) An ecient classier to distinguish D0fromD1exists.
+2. (Robust Classier Exists) There exists a inecient robust classier Rsuch that,
+P
+y Db
+B(y;m= 8)2R 1(b)
+0:99
+wherem=8is the decoding radius and B(y;d) =fy0:ky y0kHamdg.
+253. (No Ecient Robust Classier Exists) There exists a perturbation algorithm Psuch that there
+exists no polynomial-time robust classier Rsuch that,
+P
+R(~y)2R 1(b)
+0:5 +negl(n)
+where the perturbed sample ~yis generated by sampling y Dbfor a random band is then
+perturbing ~y PD0;D1(y)such thatky ~yk".
+4. (Eciently Samplable) The distributions D0;D1can be sampled in polynomial time.
+Proof. Parts (1)-(3) follow exactly as in the proof of Theorem 8.2. Note that an inecent distin-
+guisher can invert f(x) to ndx, and compute b(x). For Part (4), both distributions are clearly
+eciently samplable, by rst sampling xand then computing f(x);b(x).
+9 Cryptography from Robustly Hard Tasks
+In this section, we show that the existence of tasks with a provable gap in classication and robust
+classication implies one-way functions and hence a variety of cryptographic primitives that include
+pseudorandom functions, symmetric key encryption among others.
+Theorem 9.1. Provably hard-to-learn robust classiers imply one-way functions. Given a learning
+taskD0;D1such that,
+1. (Robust Classier Exists) There exists a robust classier Rsuch that,
+P
+y Db
+B(y;d)2R 1(b)
+0:90
+wheredis the decoding radius and B(y;d) =fy0:ky y0kHamdg.
+2. (A Robust Classier is hard-to-learn) There exists an ecient perturbing adversary Psuch
+that every eciently learned classier Lis not a robust classier. That is, for a learning task
+D0;D1 Samp (n)and classier L,
+P
+LD0;D1(~x) =b
+1
+2+ 0:1:
+where the perturbed sample ~x2B(x;d)is generated by sampling x Dbfor a random b 
+f0;1gand is then perturbing ~x PD0;D1(x). The probability is over the entire experiment
+from sampling the learning tasks to the randomness of the perturbation algorithm and the
+classier.
+Then one-way functions exist.
+The proof of this theorem relies on fact that we can construct one-way functions from any two
+distributions that are staistically far and computationally close. The two distributions considered
+are the perturbed distributions. That is,
+D0
+0=fP(x) :x D0gand,D0
+1=fP(x) :x D1g
+We show that these two distributions are statistically far and yet computationally indistinguishable
+giving one-way functions. They are statistically far because the robust classer can distinguish
+between them. Hence, the total variation distance between the two has to be large. And that they
+are computationally close because no ecient algorithm can distinguish between the two. Hence
+one way functions exist.
+26Proof. We formally state the theorem used below.
+Theorem 9.2 (Folklore, see e.g., Chap. 3, Ex. 11 [Gol01]) .Given a pair of distributions (X0;X1) 
+FoverXthat are statistically far,
+dTV(X0;X1) = max
+A:X![0;1]E
+x X0A(x) E
+x X1A(x)>0:8
+and computationally indistinguishable. That is for every polynomial time adversary Athat gets
+sample access to the distributions,
+E
+x X0A(X0;X1)(x) E
+x X1A(X0;X1)(x)<0:4
+Then one-way functions exist.7
+We want to show that these two distributions are statiscally far and computationally close.
+This relies on the existence of the robust classier and the dicultly of learning one respectively.
+We start by showing that, dTV(D0
+0;D0
+1)0:8. To observe this, consider the robust classier as
+the distinguisher. This implies that,
+dTVE
+x D0
+1[R(x)] E
+x D0
+0[R(x)]0:9 0:10:8
+On the other hand, any ecient distinguisher cannot distinguish between the samples by the
+assumption. Hence we are done.
+Another reasonable denition, from which we don't know one-way functions is the following:
+there exists a perturbation adversary Pthat given oracle access to the underlying classier nds
+counter examples. That is, Px Db
+R(PR;D0;D1(x))6=b
+0:4. For this denition, using standard
+min-max arguments [Imp95, FS+99, VZ13], we can construct \time-bounded" universal adversaries.
+That is, for time T, there exists a perturbation adversary PTrunning in time poly(T) that nds
+adversarial examples for all adversaries running in time Tor less. This is insucient to imply
+one-way functions though.
+Public Key Encryption. The two distributions described above have the following public-key
+encryption avor: the robust classier can serve as the decryption algorithm to distinguish between
+samples from the perturbed distributions D0
+0;D0
+1. If after seeing enough samples, the learning
+algorithm can generate fresh samples from the two unperturbed distributions D0;D1then we also
+have an encryption algorithm: to encrypt a bit b, rst sample from the distribution Dband run
+the perturbation adversary Pto generate the encryption of the bit. To decrypt, use the robust
+classier.
+There are two key ingredients missing: (1) The encryption algorithm Pneeds access to fresh
+samples from the two distributions to encrypt. There are learning tasks where we do not have access
+to these. (2) The ability to sample the robust classier along with descriptions of the learning tasks.
+This might not be feasible, especially when the tasks are not chosen, but supplied by nature.
+Acknowledgments. We would like to thank Sha Goldwasser and Nadia Heninger for discussions
+regarding inversion of the (noisy) BBS PRG.
+7The constants in the equations are fairly arbitrary. We can replace them by any constants ; where2> 
+and the result holds.
+27References
+[ACW18] Anish Athalye, Nicholas Carlini, and David Wagner. Obfuscated gradients give a false
+sense of security: Circumventing defenses to adversarial examples. arXiv preprint
+arXiv:1802.00420 , 2018.
+[AG11] Sanjeev Arora and Rong Ge. New algorithms for learning in presence of errors. In
+International Colloquium on Automata, Languages, and Programming , pages 403{415.
+Springer, 2011.
+[Ale03] Michael Alekhnovich. More on Average Case vs Approximation Complexity. In Foun-
+dations of Computer Science , pages 298{307. IEEE, 2003.
+[BBS86] Lenore Blum, Manuel Blum, and Mike Shub. A Simple Unpredictable Pseudo-Random
+Number Generator. SIAM Journal on computing , 1986.
+[BDRV19] Itay Berman, Akshay Degwekar, Ron D. Rothblum, and Prashant Nalini Vasudevan.
+Statistical Dierence Beyond the Polarizing Regime. Electronic Colloquium on Com-
+putational Complexity (ECCC) , 26:38, 2019.
+[BKW03] Avrim Blum, Adam Kalai, and Hal Wasserman. Noise-tolerant Learning, the Parity
+Problem, and the Statistical Query Model. J. ACM , 2003.
+[BLPR18] S ebastien Bubeck, Yin Tat Lee, Eric Price, and Ilya P. Razenshteyn. Adversarial
+examples from cryptographic pseudo-random generators. CoRR , abs/1811.06418, 2018.
+[BN90] Jehoshua Bruck and Moni Naor. The Hardness of Decoding Linear Codes with Prepro-
+cessing. IEEE Trans. Information Theory , 36(2):381{385, 1990.
+[BPR18] S ebastien Bubeck, Eric Price, and Ilya Razenshteyn. Adversarial examples from com-
+putational constraints. CoRR , abs/1805.10204, 2018.
+[BR18] Battista Biggio and Fabio Roli. Wild patterns: Ten years after the rise of adversarial
+machine learning. Pattern Recognition , 84:317{331, 2018.
+[CW17] Nicholas Carlini and David Wagner. Towards evaluating the robustness of neural net-
+works. In 2017 IEEE Symposium on Security and Privacy (SP) , pages 39{57. IEEE,
+2017.
+[DDS+04] Nilesh Dalvi, Pedro Domingos, Sumit Sanghai, Deepak Verma, et al. Adversarial classi-
+cation. In Proceedings of the tenth ACM SIGKDD international conference on Knowl-
+edge discovery and data mining , pages 99{108. ACM, 2004.
+[DV19] Akshay Degwekar and Vinod Vaikuntanathan. Computational Limitations in Robust
+Classication and Win-Win Results. arXiv preprint arXiv:1902.01086 , 2019.
+[FFF18] Alhussein Fawzi, Hamza Fawzi, and Omar Fawzi. Adversarial vulnerability for any
+classier. CoRR , abs/1802.08686, 2018.
+[FS+99] Yoav Freund, Robert E Schapire, et al. Adaptive game playing using multiplicative
+weights. Games and Economic Behavior , 29(1-2):79{103, 1999.
+[GGM86] Oded Goldreich, Sha Goldwasser, and Silvio Micali. How to Construct Random Func-
+tions. J. ACM , 1986.
+28[GI01] Venkatesan Guruswami and Piotr Indyk. Expander-based Constructions of Eciently
+Decodable Codes. In IEEE Foundations of Computer Science . IEEE, 2001.
+[GMF+18] Justin Gilmer, Luke Metz, Fartash Faghri, Samuel S. Schoenholz, Maithra Raghu,
+Martin Wattenberg, and Ian Goodfellow. Adversarial spheres, 2018.
+[Gol01] Oded Goldreich. Foundations of Cryptography: Basic Tools, 2001.
+[GPV08] Craig Gentry, Chris Peikert, and Vinod Vaikuntanathan. Trapdoors for Hard Lattices
+and New Cryptographic Constructions. In Symposium on Theory of computing , pages
+197{206. ACM, 2008.
+[Gre13] Matthew Green. A few more notes on NSA random number generators, 2013.
+[GSS] Ian J Goodfellow, Jonathon Shlens, and Christian Szegedy. Explaining and harnessing
+adversarial examples. corr (2015).
+[Hen19] Nadia Heninger. Personal communication, 2019.
+[Imp95] Russell Impagliazzo. Hard-core distributions for somewhat hard problems. In Foun-
+dations of Computer Science, 1995. Proceedings., 36th Annual Symposium on , pages
+538{545. IEEE, 1995.
+[JKPT12] Abhishek Jain, Stephan Krenn, Krzysztof Pietrzak, and Aris Tentes. Commitments
+and ecient zero-knowledge proofs from learning parity with noise. In ASIACRYPT ,
+2012.
+[KMR+94] Michael Kearns, Yishay Mansour, Dana Ron, Ronitt Rubinfeld, Robert E Schapire,
+and Linda Sellie. On the Learnability of Discrete Distributions. In ACM symposium
+on Theory of computing , pages 273{282, 1994.
+[KV94] Michael Kearns and Leslie Valiant. Cryptographic Limitations on Learning Boolean
+Formulae and Finite Automata. J. ACM , 1994.
+[LM05] Daniel Lowd and Christopher Meek. Adversarial learning. In Proceedings of the eleventh
+ACM SIGKDD international conference on Knowledge discovery in data mining , pages
+641{647. ACM, 2005.
+[Lyu05] Vadim Lyubashevsky. The parity problem in the presence of noise, decoding random
+linear codes, and the subset sum problem. In APPROX'05/RANDOM'05 , 2005.
+[Mic01] Daniele Micciancio. The hardness of the closest vector problem with preprocessing.
+IEEE Transactions on Information Theory , 47(3):1212{1215, 2001.
+[MM18] Saeed Mahloujifar and Mohammad Mahmoody. Can adversarially robust learning lever-
+age computational hardness? CoRR , abs/1810.01407, 2018.
+[MS91] Silvio Micali and Claus-Peter Schnorr. Ecient, Perfect Polynomial Random Number
+Generators. Journal of Cryptology , 3(3):157{172, 1991.
+[Nak19] Preetum Nakkiran. Adversarial robustness may be at odds with simplicity. arXiv
+preprint arXiv:1901.00532 , 2019.
+29[NR06] Moni Naor and Guy N Rothblum. Learning to impersonate. In Proceedings of the 23rd
+international conference on Machine learning , pages 649{656. ACM, 2006.
+[Pei16] Chris Peikert. A Decade of Lattice Cryptography. Foundations and Trends Rin The-
+oretical Computer Science , 10(4):283{424, 2016.
+[Reg04] Oded Regev. Improved Inapproximability of Lattice and Coding Problems With Pre-
+processing. IEEE Trans. Information Theory , 50(9):2031{2037, 2004.
+[SST+18] Ludwig Schmidt, Shibani Santurkar, Dimitris Tsipras, Kunal Talwar, and Alek-
+sander Madry. Adversarially robust generalization requires more data. arXiv preprint
+arXiv:1804.11285 , 2018.
+[SZS+13] Christian Szegedy, Wojciech Zaremba, Ilya Sutskever, Joan Bruna, Dumitru Erhan, Ian
+Goodfellow, and Rob Fergus. Intriguing properties of neural networks. arXiv preprint
+arXiv:1312.6199 , 2013.
+[VZ13] Salil Vadhan and Colin Jia Zheng. A uniform min-max theorem with applications
+in cryptography. In Advances in Cryptology{CRYPTO 2013 , pages 93{110. Springer,
+2013.
+A A Description of BLPR Example and the Blum-Blum-Shub
+PRG.
+In this section, we describe the BLPR counter-example and the Blum-Blum-Shub pseudorandom
+generator.
+We start by dening the notion of a trapdoor pseudorandom generator. A trapdoor pseudoran-
+dom generator TrapPRG :f0;1gn!f0;1g2nis an expanding function whose outputs are indistin-
+guishable from truly random strings. That is, fTrapPRG (x) :x f0;1gngc
+y:y f0;1g2n	
+.
+Furthermore, the function has a trapdoor trap that allows distinguishing the output of the PRG
+from random outputs. That is, there exists a distinguisher Dthat given the trapdoor,
+P
+x f0;1gn[D(trap;TrapPRG (x)) = 1] P
+y f0;1g2n[D(trap;y) = 1]>0:99
+Given a trapdoor PRG, the BLPR learning task D0;D1is the following:
+D0=f(0;TrapPRG (x)) :x f0;1gngand,D1=
+(1;y) :y f0;1g2n	
+:
+We describe the BBS PRG and its trapdoor property next. The Blum-Blum-Shub pseudoran-
+dom generator is dened as follows:
+Consider a number N=pqwherep;qare primes congruent to 3 (mod 4). The seed to the
+PRG is a random element x02ZN. Let hcbbe a hardcore bit8of the function x!x2(modN)
+(eg parity or the most signicant bit).
+BBSPRG (x0;m):
+1. Fori2[1 :m],
+8A function hcbis a hardcore bit of a one-way function fhas the following property, that if given y=f(x) for a
+randomx,hcb(x) is pseudorandom. That is, given any algorithm that given y=f(x) can predict hcb(x), then we
+can use this algorithm to invert fwith non-negligible probability.
+30(a) Setxi=x2
+i 1(modN).
+(b) Setyi=hcb(xi)
+2. Outputy1;y2;:::;ym 1;xm.
+The trapdoor property BLPR refer to construct the robust classier is the following one: In
+the construction of the PRG, the security does not rely on outputting the last entry ( xm) in its
+entireity. Though doing so enables the following \trapdoor" property:
+Lemma A.1. There exists a distinguisher Dthat given the factorization of Ncan distinguish
+between the output of the BBSPRG from random strings. That is,
+P
+x0 ZN[Dp;q(BBSPRG (x0))] P
+y f0;1gm[Dp;q(y)]>0:99
+Proof Sketch. The proof relies on the fact that Rabin's one way function f(x) =x2modNis a
+trapdoor function that can be eciently inverted given the factorization of N. Furthermore, the
+inverse returned is the only square root of x2that is a square itself. Hence the distinguisher does
+the following:
+D(z):
+1. Interpret the input as y1;y2;:::ym 1;xm.
+2. Ifxmis not a square mod N, output 0.
+3. Compute x1;x2;:::xm 1asxi=f 1(xi+1).
+4. Ifyi=hcb(xi) for alli, return 1, else return 0.
+Observe that the distinguisher always outputs 1 on outputs of the PRG. On the other hand,
+when fed a random string, xmis not a square with probability 3 =4 and even when it is a square,
+the probability of each yi=hcb(xi) is exactly 1 =2 independently. Hence the probability that the
+distinguisher outputs 1 on a random string is1
+4(1
+2)m 1which is tiny.
+Based on this, the BLPR counterexample is the following:
+BLPR Counter-Example. LetN=pqwherep;qare random n-bit primes of the form 3 (mod 4).
+Letm=n2. DeneD0;D1as:
+D0=f(0;BBSPRG (x0)) :x0 ZNgand,D1:n
+(1;z) :z f0;1gm+logNo
+Then, the learning task has the following properties: (1) The distributions are easy to classify non-
+robustly. (2) There exists an inecient robust classier for "=(pn). (3) No eciently learned
+classier can classify better than chance. (4) Given the factorization of N, there exists an ecient
+robust classier for "=(pn).
+Properties 1, 2, 3 are true. To the best of our knowledge, 4 is not known to be true. As we
+described earlier, we know of robust classiers for "=O(1). This leaves us with the following open
+questions.
+Open Questions.
+1. Given factorization of N, prove that there exists an ecient robust classier for "=!(1)-bits.
+2. (Perturbation Adversary 1) Consider the perturbation adversary that erases the rst bit and
+adds random noise to each bit of the PRG with prob 1 =pn. Given the factorization a N,
+does there exists an ecient robust classier for this adversary.
+313. (Perturbation Adversary 2) The adversary deletes the last complete entry output by the PRG
+(i.e.,xm). Given the factorization of N, can we distinguish this PRG from random, when no
+other error is added.
+Although BBS is a trapdoor PRG, it crucially relies on the fact that xm, the last value is
+available completely intact. Without access to this value, BBS is still a PRG but it is not
+clear how to do the trapdoor decoding.
+As we described earlier, Open Question 3 is a long-standing open question in the computational
+number theory community [Hen19, Gre13]. And Open Question 1 is a harder variant of that
+question. Finally, Question 2 asks a error correction or decoding question { given the output of a
+PRG with random errors, can you recover the original PRG string (even given some trapdoor). We
+are not aware of any way in which this factorization actually helps decoding under random noise.
+32

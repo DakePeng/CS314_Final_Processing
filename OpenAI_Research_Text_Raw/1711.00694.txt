@@ -1,0 +1,737 @@
+Interpretable and Pedagogical Examples
+Smitha Milli1Pieter Abbeel1Igor Mordatch2
+Abstract
+Teachers intentionally pick the most informative
+examples to show their students. However, if the
+teacher and student are neural networks, the ex-
+amples that the teacher network learns to give,
+although effective at teaching the student, are typ-
+ically uninterpretable. We show that training the
+student and teacher iteratively, rather than jointly,
+can produce interpretable teaching strategies. We
+evaluate interpretability by (1) measuring the sim-
+ilarity of the teacher’s emergent strategies to intu-
+itive strategies in each domain and (2) conducting
+human experiments to evaluate how effective the
+teacher’s strategies are at teaching humans. We
+show that the teacher network learns to select or
+generate interpretable, pedagogical examples to
+teach rule-based, probabilistic, boolean, and hier-
+archical concepts.
+1. Introduction
+Human teachers give informative examples to help their
+students learn concepts faster and more accurately (Shafto
+et al., 2014; Shafto & Goodman, 2008; Buchsbaum et al.,
+2011). For example, suppose a teacher is trying to teach
+different types of animals to a student. To teach what a
+“dog” is they would not show the student only images of
+dalmatians. Instead, they would show different types of
+dogs, so the student generalizes the word “dog” to all types
+of dogs, rather than merely dalmatians.
+Teaching through examples can be seen as a form of com-
+munication between a teacher and a student. Recent work
+on learning emergent communication protocols in deep-
+learning based agents has been successful at solving a vari-
+ety of tasks (Foerster et al., 2016; Sukhbaatar et al., 2016;
+Mordatch & Abbeel, 2017; Das et al., 2017; Lazaridou et al.,
+2016). Unfortunately, the protocols learned by the agents are
+usually uninterpretable to humans (Kottur et al., 2017). In-
+terpretability is important for a variety of reasons (Caruana
+et al., 2017; Doshi-Velez & Kim, 2017), including safety,
+1UC Berkeley2OpenAI. Correspondence to: Smitha Milli
+<smilli@berkeley.edu >.trust, and in this case, potential for use in communication
+with humans.
+We hypothesize that one reason the emergent protocols are
+uninterpretable is because the agents are typically optimized
+jointly. Consider how this would play out with a teacher
+network Tthat selects or generates examples to give to a
+student network S. IfTandSare optimized jointly, then T
+andSessentially become an encoder and decoder that can
+learn any arbitrary encoding. Tcould encode “dog” through
+a picture of a giraffe and encode “siamese cat” through a
+picture of a hippo.
+The examples chosen by T, although effective at teaching S,
+are unintuitive since Sdoes not learn in the way we expect.
+On the other hand, picking diverse dog images to communi-
+cate the concept of “dog” is an intuitive strategy because it
+is the effective way to teach given how we implicitly assume
+a student would interpret the examples. Thus, we believe
+thatShaving an interpretable learning strategy is key to the
+emergence of an interpretable teaching strategy.
+This raises the question of whether there is an alternative
+to jointly optimizing TandS, in which Smaintains an
+interpretable learning strategy, and leads Tto learn an in-
+terpretable teaching strategy. We would ideally like such an
+alternative to be domain-agnostic. Drawing on inspiration
+from the cognitive science work on rational pedagogy (see
+Section 2.1), we propose a simple change:
+1. Train Son random examples
+2. Train Tto pick examples for this ﬁxed S
+In Step 1, Slearns an interpretable strategy that exploits
+a natural mapping between concepts and examples, which
+leadsTto learn an interpretable teaching strategy in Step 2.
+What do we mean by interpretable? There is no universally
+agreed upon deﬁnition of interpretability (Doshi-Velez &
+Kim, 2017; Weller, 2017; Lipton, 2016). Rather than simply
+picking one deﬁnition, we operationalize interpretability us-
+ing the following two metrics in the hopes of more robustly
+capturing what we mean by interpretable:
+1.Evaluating how similar T’s strategy is to intuitive
+human-designed strategies (Section 5)arXiv:1711.00694v2  [cs.AI]  14 Feb 2018Interpretable and Pedagogical Examples
+2.Evaluating how effective T’s strategy is at teaching
+humans (Section 6)
+We ﬁnd that, according to these metrics, Tlearns to give
+interpretable, pedagogical examples to teach rule-based,
+probabilistic, boolean, and hierarchical concepts.
+2. Related Work
+2.1. Rational pedagogy
+What does it mean to rationally teach and learn through
+examples? One suggestion is that a rational teacher chooses
+the examples that are most likely to make the student infer
+the correct concept. A rational student can then update their
+prior belief of the concept given the examples and the fact
+that the examples were chosen by a cooperative teacher.
+Shafto et al formalize this intuition in a recursive Bayesian
+model of human pedagogical reasoning (Shafto & Good-
+man, 2008; Shafto et al., 2012; 2014). In their model the
+probability a teacher selects an example eto teach a concept
+cis a soft maximization (with parameter ) over what the
+student’s posterior probability of cwill be. The student can
+then update their posterior accordingly. This leads to two
+recursive equations:
+Pteacher (ejc)/(Pstudent (cje))(1)
+Pstudent (cje)/Pteacher (ejc)P(c) (2)
+Note that in general there are many possible solutions to
+this set of dependent equations. A sufﬁcient condition for
+a unique solution is an initial distribution for Pteacher (ejc).
+Shafto et al suggest that a natural initial distribution for the
+teacher is a uniform distribution over examples consistent
+with the concept. They empirically show that the ﬁxed point
+that results from this initial distribution matches human
+teaching strategies.
+In our work, we initialize the teacher distribution in the way
+suggested by Shafto et al. We optimize in two steps: (1)
+train the student on this initial distribution of examples (2)
+optimize the teacher for this ﬁxed student. This approach
+is analogous to doing one iteration of Equation 2 and then
+one iteration of Equation 1. We ﬁnd that one iteration is
+sufﬁcient for producing interpretable strategies.
+2.2. Communication protocol learning.
+Teaching via examples can be seen as communication be-
+tween a teacher to a student via examples. Much recent
+work has focused on learning emergent communication pro-
+tocols in deep-learning based agents (Foerster et al., 2016;
+Sukhbaatar et al., 2016). However, these emergent protocols
+tend to be uninterpretable (Kottur et al., 2017). A number oftechniques have been suggested to encourage interpretabil-
+ity, such as limiting symbol vocabulary size (Mordatch &
+Abbeel, 2017), limiting memorization capabilities of the
+speaker (Kottur et al., 2017), or introducing auxiliary tasks
+such as image labelling based on supervision data (Lazari-
+dou et al., 2016).
+Despite these modiﬁcations, the protocols can still be difﬁ-
+cult to interpret. Moreover, it is unclear how modiﬁcations
+like limiting vocabulary size apply when communication
+is in the form of examples because usually examples are
+already a ﬁxed length (e.g coordinates in a plane) or con-
+strained to be selected from a set of possible examples. So,
+there must be other reasons that humans come up with inter-
+pretable protocols in these settings, but neural networks do
+not.
+We suggest that one reason may be that these communica-
+tion protocols are typically learned through joint optimiza-
+tion of all agents (Foerster et al., 2016; Sukhbaatar et al.,
+2016; Mordatch & Abbeel, 2017; Kottur et al., 2017; Lazari-
+dou et al., 2016), and evaluate how changing from a joint
+optimization to an iterative one can improve interpretability.
+2.3. Interpretability in machine teaching.
+One problem studied in the machine teaching literature is
+ﬁnding a student-teacher pair such that the student can learn
+a set of concepts when given examples from the teacher
+(Jackson & Tomkins, 1992; Balbach & Zeugmann, 2009).
+However, it is difﬁcult to formalize this problem in a way
+that avoids contrived solutions known as “coding tricks.” Al-
+though the community has not agreed on a single deﬁnition
+of what a coding trick is, it refers to a solution in which
+the teacher and student simply “collude” on a pre-speciﬁed
+protocol for encoding the concept through examples.
+Many additional constraints to the problem have been pro-
+posed to try to rule out coding tricks. These additional
+constraints include requiring the student to be able to learn
+through any superset of the teacher’s examples (Goldman
+& Mathias, 1996), requiring the learned protocols to work
+for any ordering of the concepts or examples (Zilles et al.,
+2011), requiring the student to learn all concepts plus their
+images under primitive recursive operators (Ott & Stephan,
+2002), and giving incompatible hypothesis spaces to the
+student and teacher (Angluin & Krik ¸is, 1997).
+The prior work has mainly been theoretically driven. The
+papers provide a deﬁnition for what it means to avoid collu-
+sion and then aim to ﬁnd student-teacher pairs that provably
+satisfy the proposed deﬁnition. Our work takes a more
+experimental approach. We provide two criteria for inter-
+pretability and then empirically evaluate how modifying the
+optimization procedure affects these two criteria.Interpretable and Pedagogical Examples
+ˆceSTeeSTˆc12K·········eSTˆcLc
+Figure 1. A visualization of the interaction between TandS. At
+each step Ttakes in the true concept and S’s last estimate of the
+concept and outputs an example for S. Then Soutputs its new
+estimate of the concept.
+Algorithm 1 Joint Optimization
+Require:p(C): distribution over concepts
+while not converged do
+Samplec1;:::cnp(C)
+foreachcido
+Initialize ^ci;0= 0
+fork2f1;:::;Kgdo
+ek=T(ci;^ci;k 1jT)
+^ci;k=S(ekjS)
+end for
+end for
+S=S 1
+nrSP
+iP
+kL(ci;^ci;k)
+T=T 1
+nrTP
+iP
+kL(ci;^ci;k)
+end while
+3. Approach
+We consider a set of possible concepts Cand examplesE.
+For example,Cmay be different animals like cats, dogs,
+parrots, etc andEmay be images of those animals. The
+priorp(ejc)is a distribution over non-pedagogically selected
+examples of the concept. For example, if Cis the set of all
+animals, then p(ejc)could be a uniform distribution over
+images of a given animal.
+A student S:E 7!C takes in a running sequence of K
+examples and at each step outputs a guess ^cfor the concept
+the sequence of examples corresponds to. A teacher T:
+CC 7!E takes in the target concept to teach and S’s
+current guess of the concept and outputs the next example
+for the student at each step. When the set of examples
+is continuous Toutputs the examples directly. When Eis
+discrete we use the Gumbel-Softmax trick (Jang et al., 2016)
+to have Tgenerate a sample from E.
+The performance of both SandTis evaluated by a loss
+functionL:CC7! Rthat takes in the true concept and
+S’s output after Kexamples (although in some tasks we
+found it useful to sum the losses over all S’s outputs). In ourAlgorithm 2 Best Response (BR) Optimization
+Require:p(C): distribution over concepts
+Train student on random examples:
+while not converged do
+Samplec1;:::cnp(C)
+foreachcido
+fork2f1;:::;Kgdo
+ekp(jci)
+^ci;k=S(ekjS)
+end for
+end for
+S=S 1
+nrSP
+iP
+kL(ci;^ci;k)
+end while
+Train teacher best response to student:
+while not converged do
+Samplec1;:::cnp(C)
+foreachcido
+Initialize ^ci;0= 0
+fork2f1;:::;Kgdo
+ek=T(ci;^ci;k 1jT)
+^ci;k=S(ekjS)
+end for
+end for
+T=T 1
+nrTP
+iP
+kL(ci;^ci;k)
+end while
+work, both SandTare modeled with deep recurrent neural
+networks parameterized by SandT, respectively. Recur-
+rent memory allows the student and teacher to effectively
+operate over sequences of examples. TandSare illustrated
+graphically in Figure 1.
+In the recent work on learning deep communication pro-
+tocols, the standard way to optimize SandTwould be to
+optimize them jointly, similar to the training procedure of an
+autoencoder (Algorithm 1). However, joint optimization al-
+lowsSandTto form an arbitrary, uninterpretable encoding
+of the concept via examples. We compare joint optimiza-
+tion to an alternative approach we call a best response (BR)
+optimization (Algorithm 2), which iteratively trains Sand
+Tin two steps:
+1.TrainSon concept examples e1;:::eKp(jc)com-
+ing from prior example distribution.
+2. Train Tto select or generate examples for the ﬁxed S
+from Step 1.
+The intuition behind separating the optimization into two
+steps is that if Slearns an interpretable learning strategy in
+Step 1, then Twill be forced to learn an interpretable teach-
+ing strategy in Step 2.1The reason we expect Sto learn an
+1We also explored doing additional best responses, but this didInterpretable and Pedagogical Examples
+“interpretable” strategy in Step 1 is that it allows Sto learn a
+strategy that exploits the natural mapping between concepts
+and examples. For example, suppose the concept space is
+the set of all rectangles and p(ejc)is a uniform distribution
+over points within a rectangle (the task in Section 5.1). In
+Step 1, Slearns to only guess rectangles that contain all the
+given examples. Because Sexpects examples to be within
+the rectangle, then in Step 2, Tlearns to only give examples
+that are within the rectangle, without explicitly being con-
+strained to do so . So,Tlearns to picks the most informative
+examples that are still within the rectangle, which are the
+corners of the rectangle.
+4. Tasks
+The purpose of our experiments is to examine what kind of
+emergent teaching strategies Tlearns and whether or not
+they are interpretable . However, there are many deﬁnitions
+of interpretability in the literature (Doshi-Velez & Kim,
+2017; Weller, 2017; Lipton, 2016). Rather than selecting
+just one, we evaluate interpretability in two ways, hoping
+that together these evaluations more robustly capture what
+we mean by interpretability. We evaluate interpretability by:
+1.Evaluating how similar T’s strategies are to intuitive
+human-designed strategies in each task
+2.Evaluating the effectiveness of T’s strategy at teaching
+humans.
+We created a variety of tasks for evaluation that capture a
+range of different types of concepts (rule-based, probabilis-
+tic, boolean, and hierarchical concepts). In this section we
+provide a brief description of the tasks and why we chose
+them. Section 5 evaluates our method with respect to the
+ﬁrst interpretability criteria, while Section 6 addresses the
+second interpretability criteria.
+Rule-based concepts. We ﬁrst aimed to replicate a com-
+mon task in the rational pedagogy literature in cognitive
+science, known as the rectangle game (Shafto & Goodman,
+2008). In the variant of the rectangle game that we consider,
+there is a rectangle that is known to the teacher but unknown
+to the student. The student’s goal is to infer the boundary of
+the rectangle from examples of points within the rectangle.
+The intuitive strategy that human teachers tend to use is to
+pick opposite corners of the rectangle (Shafto et al., 2012;
+2014). We ﬁnd that Tlearns to match this strategy.
+Probabilistic concepts. It is often difﬁcult to deﬁne
+naturally-occurring concepts via rules. For example, it
+not increase interpretability compared to just one best response. In
+addition, we explored optimizing SandTjointly after pre-training
+Swith Step 1, but this did not lead to more interpretable protocols
+than directly training jointly.is unclear how to deﬁne what a bird is via logical rules.
+Moreover, some examples of a concept can seem more pro-
+totypical than others (e.g sparrow vs peacock) (Rosch &
+Mervis, 1975), and this is not captured by simply modeling
+the concept as a set of rules that must be satisﬁed. An alter-
+native approach models concept learning as estimating the
+probability density of the concept (Anderson, 1991; Ashby
+& Alfonso-Reese, 1995; Fried & Holyoak, 1984; Grifﬁths
+et al., 2008).
+(Shafto et al., 2014) investigate teaching and learning uni-
+modal distributions. But often a concept (e.g lamp) can
+have multiple subtypes (e.g. desk lamp and ﬂoor lamp).
+So, we investigate how Tteaches a bimodal distribution.
+The bimodal distribution is parameterized as a mixture of
+two Gaussian distributions and S’s goal is to learn the loca-
+tion of the modes. Tlearns the intuitive strategy of giving
+examples at the two modes.
+Boolean concepts. An object can have many properties,
+but only a few of them may be relevant for deciding whether
+the object belongs to a concept or not. For example, a circle
+is a circle whether it has a radius of 5 centimeters or 100
+meters. The purpose of this task is to see what strategy T
+learns to quickly teach Swhich properties are relevant to a
+concept.
+The possible examples we consider are images that vary
+based on four properties: size (small, medium, large), color
+(red, blue, green), shape (square vs circle), and border (solid
+vs none). Figure 7 shows possible example images. Only
+one to three of these properties deﬁne a concept. For exam-
+ple, if the concept is red circles, then red circles of any size
+or border ﬁt the concept.
+Tlearns the intuitive strategy of picking two examples
+whose only common properties are the ones required by
+the concept, allowing Sto learn that the other properties are
+not relevant for membership in the concept.
+Hierarchical concepts. Human-deﬁned concepts are of-
+ten hierarchical, e.g. animal taxonomies. Humans are sen-
+sitive to taxonomical structure when learning how to gen-
+eralize to a concept from an example (Xu & Tenenbaum,
+2007). The purpose of this task is to test how Tlearns
+to teach when the concepts form a hierarchical structure.
+We create hierarchical concepts by pruning subtrees from
+Imagenet. T’s goal is to teach Snodes from any level in
+the hierarchy, but can only give images from leaf nodes. T
+learns the intuitive strategy of picking two examples whose
+lowest common ancestor is the concept node, allowing Sto
+generalize to the correct level in the hierarchy.Interpretable and Pedagogical Examples
+JointTeacher
+Figure 2. Rule-based concepts. The black rectangle is the ground-truth concept and the blue dashed rectangle is student’s output after
+each example. Left: The joint optimization has no clear interpretable strategy. Right: Under BR optimization Tlearns to give opposite
+corners of the rectangle.
+Distance to                 Intuitive Strategy0481216
+RandomTeacherJoint
+Figure 3. Rule-based concepts. T’s examples are closer to opppo-
+site corners of the rectangles than randomly generated or jointly
+trained examples.
+5. Evaluation: Strategy Similarity
+First, we evaluate interpretability by evaluating how similar
+the strategy Tlearns is to an intuitive, human-designed
+strategy for each task.
+5.1. Rule-based concepts
+A concept (rectangle) is encoded as a length four vector
+c2[ 10;10]4of the minimum x, minimum y, maximum
+x, and maximum y of the rectangle. p(ejc)is a uniform
+distribution over points in the rectangle. Examples are two-
+dimensional vectors that encode the x and y coordinate of a
+point. The loss between the true concept candS’s output
+c0isL(c;^c) =jjc ^cjj2
+2and is only calculated on S’s last
+output. Sis ﬁrst trained against ten examples generated
+fromp(ejc). Then Tis trained to teach Sin two examples.Tgenerates examples continuously as a two-dimensional
+vector.
+Figure 2 shows an example of T’s choices and S’s guess
+of the concept after each example given. Under both BR
+and joint optimization Sis able to infer the concept in two
+examples. However, in joint optimization it is not clear how
+T’s examples relate to the ground-truth rectangle (black)
+or what policy the student (orange) has for inferring the
+rectangle. On the other hand, in the BR case Toutputs
+points close to opposite corners of the rectangle, and S
+expands its estimate of the rectangle to ﬁt the examples the
+teacher gives.
+Figure 3 measures the distance between the random, best
+response (teacher), and joint strategy to the intuitive strategy
+of giving corners averaged over concepts. Speciﬁcally, let
+e= (e1;e2)be the two examples given and S(c)be the set
+of tuples of opposite corners of c. The distance measures
+how close these two examples are to a pair of opposite
+corners and is deﬁned as d(e;c) = mins2S(c)jje1 s1jj2+
+jje2 s2jj2.T’s examples are much closer to opposite
+corners than either the random or joint strategy.
+5.2. Probabilistic concepts
+A concept is encoded as two-dimensional vector c=
+(1;2)2[0;20]2where1and2are the locations of
+the two modes and 1<  2.p(ejc) = 0:5N(1;1) +
+0:5N(2;1)is a mixture of two Gaussians. The loss be-
+tween the true concept candS’s output ^cisL(c;^c) =
+jjc ^cjj2
+2.Sis ﬁrst trained against ﬁve examples generated
+fromp(ejc). Then Tis trained to teach Sin two examples.
+Tgenerates examples continuously as a one-dimensional
+vector.Interpretable and Pedagogical Examples
+True modes 
+Joint 
+Random Teacher Joint 
+Figure 4. Probabilistic concepts. Tpicks examples at different modes more consistently than the random policy, which picks examples
+near the same mode half of the time. Example are visualized by length of lines.
+Distance to            Intuitive Strategy02468
+RandomTeacherJoint
+Figure 5. Probabilistic concepts. T’s examples are closer to the
+two modes than randomly generated or jointly trained examples.
+Tlearns the intuitive strategy of giving the two modes as
+the examples. Figure 5 measures the distance to the intuitive
+strategy by the distance, jje cjj2, between the examples,
+e, and the true modes, c. Botheandcare sorted when
+calculating the distance. Tlearns to match the intuitive
+strategy better than the random or joint strategy.
+Figure 4 shows an example of the choices of the random,
+teacher, and joint strategy. While the random strategy some-
+times picks two examples closer to one mode, Tis more
+consistent about picking examples at two of the modes (as
+indicated by Figure 5). It is unclear how to interpret the
+choices from the joint strategy.
+5.3. Boolean concepts
+Examples are images of size 25 x 25 x 3. Concepts are
+ten-dimensional binary vectors where each dimension rep-
+resents a possible value of a property (size, color, shape,
+border). The value of one in the vector indicates that the
+relevant property (e.g. color) must take on that value (e.g.
+red) in order to be considered a part of the concept. p(ejc)
+is a uniform distribution over positive examples of the con-
+cept. The loss between the true concept candS’s output ^cis
+L(c;^c) =jjc ^cjj2
+2.Sis ﬁrst trained on ﬁve examples gen-
+erated from p(ejc). In both BR and joint optimization, we
+trained Swith a curriculum starting with concepts deﬁned
+by three properties, then two, and then one. Tis trained
+to teach Swith two examples. In this experiment, Tse-
+RandomTeacherFigure 6. Boolean concepts. Examples for the concept “red”. Left:
+The concept “red with border” and “red” are consistent with the
+random examples. Right: Only the true concept “red” is consistent
+withT’s examples.
+Figure 7. Boolean concepts . Possible example images.
+ % Matching          Intuitive Strategy0%50%100%
+RandomTeacherJoint
+Figure 8. Boolean concepts. Tmatches the intuitive strategy 87%
+of the time, compared to 36% for random, and 0% for joint.
+lects an example from a discrete set of all images. We use
+the Gumbel-Softmax estimator (Jang et al., 2016) to select
+discrete examples from ﬁnal layer of Tin a differentiable
+manner.
+Tlearns the intuitive strategy of picking two examples
+whose only common properties are the ones required by
+the concept, so that Scan rule out the auxiliary properties.
+For example, Figure 6 shows T’s examples for the conceptInterpretable and Pedagogical Examples
+ApeLesser apeGreat apeSiamangGibbonChimpanzeeGorilla
+…
+Orangutan
+…
+Figure 9. Hierarchical concepts. An example subtree. T’s strategy
+is to give two nodes whose lowest common ancestor is the target
+concept. For example, to teach ape Tcould choose to give an
+orangutan image and a siamang image.
+% Matching           Intuitive Strategy0%25%50%75%100%
+PrimatesFelinesParrotsRandomTeacherJoint
+Figure 10. Hierarchical concepts. Tlearns to perfectly match the
+intuitive strategy for hierarchical concepts, but the joint optimiza-
+tion matches the intuitive strategy less than random examples.
+of red. Tselects a large red square with no border and then
+a small red circle with a border. The only property the two
+shapes have in common is red, so the concept must only
+consist of red. Indeed, 87% of T’s examples only have the
+required properties in common, compared to 36% of ran-
+dom examples, and 0% of jointly trained examples (Figure
+8).
+5.4. Hierarchical concepts
+We create a set of hierarchical concepts by pruning a subtree
+from Imagenet. Each node in the subtree is a concept and is
+encoded as a one-hot vector. We randomly select 10 images
+of each leaf node. The possible examples for a leaf node
+are any of its ten images. The possible examples for an
+interior node are images from any of its descendant leaves.
+For example, in the hierarchy of apes shown in Figure 9, the
+possible examples for the “lesser apes” concept are images
+of siamangs or gibbons.
+We use a pretrained ResNet-50 model (He et al., 2015)to embed each image into a 2048 length vector. p(ejc)is
+a uniform distribution over the possible examples for the
+concept.L(c;^c)is the softmax cross entropy loss between
+the true concept candS’s output ^c.Sis ﬁrst trained on ﬁve
+examples generated from p(ejc).Tthen learns to teach S
+with two examples. As in 5.3, the ﬁnal layer of Tuses the
+Gumbel-Softmax estimator to sample an example image.
+Tlearns the intuitive strategy of picking examples from two
+leaf nodes such that the lowest common ancestor (LCA) of
+the leaf nodes is the concept node. This strategy encodes
+the intuition that to teach someone the concept “dog” you
+wouldn’t only show them images of dalmations. Instead
+you would show examples of different types of dogs, so they
+generalize to a higher level in the taxonomy. For example, to
+teach what an ape is Tcould select an image of an orangutan
+and a siamang because the lowest common ancestor of the
+two is the ape concept (Figure 9).
+Figure 10 shows T’s correspondence to the intuitive strategy
+on the interior nodes of three example subtrees of Imagenet:
+apes, parrots, and felines. These subtrees have 16, 19, and
+57 possible concepts respectively. Tlearns to follow the
+LCA strategy 100% of the time, whereas the highest the
+jointly trained strategy ever gets is 20%.
+6. Evaluation: Teaching Humans
+In the previous section, we evaluated interpretability by
+measuring how similar T’s strategy was to a qualitatively
+intuitive strategy for each task. In this section, we revisit
+two of the tasks and provide an additional measure of in-
+terpretability by evaluating how effective T’s strategy is at
+teaching humans.
+6.1. Probabilistic concepts
+We ran experiments to see how well Tcould teach humans
+the bimodal distributions task from Section 5.2. 60 sub-
+jects were recruited on Amazon Mehcanical Turk. They
+were tested on the ten concepts with modes in E=
+f4;8;12;16;20g. 30 subjects were shown two examples
+generated from p(ejc)for each concept and the other 30
+subjects were shown two examples generated by Tfor each
+concept. The subjects were then given ﬁve test lines of
+lengths inEand asked to rate on a scale of one to ﬁve how
+likely they think the line is a part of the concept. For each
+concept there were two lines with very high probability of
+being in the concept and three lines with very low probabil-
+ity of being in the concept. A subject is said to have gotten
+the concept correct if they gave the high-probability lines
+a rating greater than three and the low-probability lines a
+rating less than or equal to three.
+The subjects given examples from the teacher had an average
+accuracy of 18%, compared to 8% with random examples.Interpretable and Pedagogical Examples
+Accuracy0%20%40%
+RandomTeacherp < 0.001Accuracy0%50%100%
+RandomTeacherp < 0.001
+Figure 11. Probabilistic concepts. Humans learned the correct
+distribution over concepts better than humans given random exam-
+ples.
+Accuracy0%50%100%
+RandomTeacherp < 0.001
+Figure 12. Boolean concepts. Humans learned to classify test im-
+ages better through examples from T.
+In addition, the teacher group had a much higher standard
+deviation than the random group, 19% compared to 6%. The
+maximum accuracy in the teacher group was 70%, but just
+20% in the random group. The difference between groups
+was highly signiﬁcant with p <0:001, calculated using a
+likelihood-ratio test on an ordinary logit model as described
+in (Jaeger, 2008).
+Although the teacher group did better, neither group had a
+high mean accuracy. The task is difﬁcult because a subject
+needs to get the entire distribution correct to be counted
+as a correct answer. But another possible reason for poor
+performance is people may have had the wrong hypothesis
+about the structure of concepts. It seems as though many
+subjects hypothesized that the structure of the concept space
+was unimodal, rather than bimodal, thus believing that lines
+with a length in between the two shown to them were very
+likely to be a part of the concept. An interesting open
+research question is how to ensure that the human has the
+correct model of the concept space.
+6.2. Boolean concepts
+To evaluate human learning of boolean concepts (the task
+from Section 5.3), we sampled ten test concepts, ﬁve com-posed of one property and ﬁve composed of two properties.
+We recruited 80 subjects on Amazon Mechanical Turk and
+showed 40 of them two random positive examples of the
+ten concepts and the other 40 of them two examples chosen
+by the teacher. They were then asked to classify four new
+images as either a part of the concept or not. The four new
+images always had two positive examples and two nega-
+tive examples for the concept. As shown in Figure 12, the
+group that received examples from Tperformed better with
+a mean accuracy of 76%, compared to a mean accuracy of
+71% for those that received random examples. This dif-
+ference was highly signiﬁcant with p<0:001, calculated
+using the same procedure described in Section 6.1 from
+(Jaeger, 2008).
+7. Discussion
+What leads the protocols that humans learn to be so different
+from the protocols that deep learning models learn? One ex-
+planation is that humans have limitations that deep learning
+models do not.
+We investigated the impact of one limitation: humans cannot
+jointly optimize among themselves. We found that switch-
+ing to an iterative optimization in which (1) the student
+network is trained against examples coming from a non-
+pedagogical distribution and then (2) the teacher network is
+trained against this ﬁxed student leads to more interpretable
+teaching protocols. The intuition behind the approach is
+that (1) leads the student to learn an interpretable learn-
+ing strategy, which then constrains the teacher to learn an
+interpretable teaching strategy in (2).
+But this is just one of many possible limitations. For ex-
+ample, one reason we believe human students did not learn
+concepts as well as the student network (Section 6) is that
+humans had a different prior over concepts. In the probabilis-
+tic concepts task, humans seemed to believe that the lines
+came from a unimodal, rather than bimodal, distribution. In
+the boolean concepts task, humans tended to overemphasize
+color as a property. It is unrealistic to assume that a teacher
+and student have a perfectly matching prior over concepts
+or perfect models of each other. An important open ques-
+tion is which of these limitations are fundamental for the
+emergence of interpretable teaching protocols.
+While we carried out our experiments in the setting of teach-
+ing via examples, another direction for future work is in-
+vestigating how an iterative optimization procedure works
+in more complex teaching settings (say teaching through
+demonstrations) and in communication tasks more broadly.
+Overall, we hope that our work presents a ﬁrst step towards
+understanding the gap between the interpretability of ma-
+chine agents and human agents.Interpretable and Pedagogical Examples
+References
+Anderson, John R. The adaptive nature of human catego-
+rization. Psychological Review , 98(3):409, 1991.
+Angluin, Dana and Kri k ¸is, M ¯artin ¸ˇs. Teachers, learners and
+black boxes. In Proceedings of the tenth annual con-
+ference on Computational learning theory , pp. 285–297.
+ACM, 1997.
+Ashby, F Gregory and Alfonso-Reese, Leola A. Catego-
+rization as probability density estimation. Journal of
+mathematical psychology , 39(2):216–233, 1995.
+Balbach, Frank J and Zeugmann, Thomas. Recent develop-
+ments in algorithmic teaching. LATA , 9:1–18, 2009.
+Buchsbaum, Daphna, Gopnik, Alison, Grifﬁths, Thomas L,
+and Shafto, Patrick. Childrens imitation of causal action
+sequences is inﬂuenced by statistical and pedagogical
+evidence. Cognition , 120(3):331–340, 2011.
+Caruana, Rich, Herlands, William, Simard, Patrice, Wilson,
+Andrew Gordon, and Yosinski, Jason. Proceedings of
+nips 2017 symposium on interpretable machine learning.
+arXiv preprint arXiv:1711.09889 , 2017.
+Das, Abhishek, Kottur, Satwik, Moura, Jos ´e MF, Lee, Ste-
+fan, and Batra, Dhruv. Learning cooperative visual dialog
+agents with deep reinforcement learning. arXiv preprint
+arXiv:1703.06585 , 2017.
+Doshi-Velez, Finale and Kim, Been. Towards a rigorous
+science of interpretable machine learning. arXiv preprint
+arXiv:1702.08608 , 2017.
+Foerster, Jakob, Assael, Yannis, de Freitas, Nando, and
+Whiteson, Shimon. Learning to communicate with deep
+multi-agent reinforcement learning. In Advances in
+Neural Information Processing Systems , pp. 2137–2145,
+2016.
+Fried, Lisbeth S and Holyoak, Keith J. Induction of category
+distributions: A framework for classiﬁcation learning.
+Journal of Experimental Psychology: Learning, Memory,
+and Cognition , 10(2):234, 1984.
+Goldman, Sally A and Mathias, H David. Teaching a smarter
+learner. Journal of Computer and System Sciences , 52(2):
+255–267, 1996.
+Grifﬁths, Thomas L, Sanborn, Adam N, Canini, Kevin R,
+and Navarro, Daniel J. Categorization as nonparamet-
+ric bayesian density estimation. The probabilistic mind:
+Prospects for Bayesian cognitive science , pp. 303–328,
+2008.
+He, Kaiming, Zhang, Xiangyu, Ren, Shaoqing, and Sun,
+Jian. Deep residual learning for image recognition. arXiv
+preprint arXiv:1512.03385 , 2015.Jackson, Jeffrey and Tomkins, Andrew. A computational
+model of teaching. In Proceedings of the ﬁfth annual
+workshop on Computational learning theory , pp. 319–
+326. ACM, 1992.
+Jaeger, T Florian. Categorical data analysis: Away from
+anovas (transformation or not) and towards logit mixed
+models. Journal of memory and language , 59(4):434–
+446, 2008.
+Jang, Eric, Gu, Shixiang, and Poole, Ben. Categorical
+reparameterization with gumbel-softmax. arXiv preprint
+arXiv:1611.01144 , 2016.
+Kottur, Satwik, Moura, Jos ´e MF, Lee, Stefan, and Batra,
+Dhruv. Natural language does not emerge’naturally’in
+multi-agent dialog. arXiv preprint arXiv:1706.08502 ,
+2017.
+Lazaridou, Angeliki, Peysakhovich, Alexander, and Baroni,
+Marco. Multi-agent cooperation and the emergence of
+(natural) language. arXiv preprint arXiv:1612.07182 ,
+2016.
+Lipton, Zachary C. The mythos of model interpretability.
+arXiv preprint arXiv:1606.03490 , 2016.
+Mordatch, Igor and Abbeel, Pieter. Emergence of grounded
+compositional language in multi-agent populations. arXiv
+preprint arXiv:1703.04908 , 2017.
+Ott, Matthias and Stephan, Frank. Avoiding coding tricks
+by hyperrobust learning. Theoretical Computer Science ,
+284(1):161–180, 2002.
+Rosch, Eleanor and Mervis, Carolyn B. Family resem-
+blances: Studies in the internal structure of categories.
+Cognitive psychology , 7(4):573–605, 1975.
+Shafto, Patrick and Goodman, Noah. Teaching games: Sta-
+tistical sampling assumptions for learning in pedagogical
+situations. In Proceedings of the 30th annual confer-
+ence of the Cognitive Science Society , pp. 1632–1637.
+Cognitive Science Society Austin, TX, 2008.
+Shafto, Patrick, Goodman, Noah D, and Frank, Michael C.
+Learning from others: The consequences of psychologi-
+cal reasoning for human learning. Perspectives on Psy-
+chological Science , 7(4):341–351, 2012.
+Shafto, Patrick, Goodman, Noah D, and Grifﬁths, Thomas L.
+A rational account of pedagogical reasoning: Teaching
+by, and learning from, examples. Cognitive psychology ,
+71:55–89, 2014.Interpretable and Pedagogical Examples
+Sukhbaatar, Sainbayar, Szlam, Arthur, and Fergus, Rob.
+Learning multiagent communication with backpropaga-
+tion. In Advances in Neural Information Processing Sys-
+tems 29: Annual Conference on Neural Information Pro-
+cessing Systems 2016, December 5-10, 2016, Barcelona,
+Spain , pp. 2244–2252, 2016.
+Weller, Adrian. Challenges for transparency. arXiv preprint
+arXiv:1708.01870 , 2017.
+Xu, Fei and Tenenbaum, Joshua B. Word learning as
+bayesian inference. Psychological review , 114(2):245,
+2007.
+Zilles, Sandra, Lange, Steffen, Holte, Robert, and Zinkevich,
+Martin. Models of cooperative teaching and learning.
+Journal of Machine Learning Research , 12(Feb):349–384,
+2011.

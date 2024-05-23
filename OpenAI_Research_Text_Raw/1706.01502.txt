@@ -1,0 +1,736 @@
+arXiv:1706.01502v3  [cs.LG]  7 Nov 2017UCB Exploration via Q-Ensembles
+Richard Y. Chen
+OpenAI
+richardchen@openai.comSzymon Sidor
+OpenAI
+szymon@openai.comPieter Abbeel
+OpenAI
+University of California, Berkeley
+pabbeel@cs.berkeley.edu
+John Schulman
+OpenAI
+joschu@openai.com
+Abstract
+We show how an ensemble of Q∗-functions can be leveraged for more effective ex-
+ploration in deep reinforcement learning. We build on well e stablished algorithms
+from the bandit setting, and adapt them to the Q-learning setting. We propose an
+exploration strategy based on upper-conﬁdence bounds (UCB ). Our experiments
+show signiﬁcant gains on the Atari benchmark.
+1 Introduction
+Deep reinforcement learning seeks to learn mappings from hi gh-dimensional observations to actions.
+DeepQ-learning (Mnih et al. [14]) is a leading technique that has b een used successfully, especially
+for video game benchmarks. However, fundamental challenge s remain, for example, improving
+sample efﬁciency and ensuring convergence to high quality s olutions. Provably optimal solutions
+exist in the bandit setting and for small MDPs, and at the core of these solutions are exploration
+schemes. However these provably optimal exploration techn iques do not extend to deep RL in a
+straightforward way.
+Bootstrapped DQN (Osband et al. [18]) is a previous attempt a t adapting a theoretically veriﬁed
+approach to deep RL. In particular, it draws inspiration fro mposterior sampling for reinforcement
+learning (PSRL, Osband et al. [16], Osband and Van Roy [15]), which has near-optimal regret
+bounds. PSRL samples an MDP from its posterior each episode a nd exactly solves Q∗, its optimal
+Q-function. However, in high-dimensional settings, both ap proximating the posterior over MDPs
+and solving the sampled MDP are intractable. Bootstrapped D QN avoids having to establish and
+sample from the posterior over MDPs by instead approximatin g the posterior over Q∗. In addition,
+bootstrapped DQN uses a multi-headed neural network to repr esent the Q-ensemble. While the
+authors proposed bootstrapping to estimate the posterior d istribution, their empirical ﬁndings show
+best performance is attained by simply relying on different initializations for the different heads, not
+requiring the sampling-with-replacement process that is p rescribed by bootstrapping.
+In this paper, we design new algorithms that build on the Q-ensemble approach from Osband et al.
+[18]. However, instead of using posterior sampling for expl oration, we use the uncertainty estimates
+from the Q-ensemble. Speciﬁcally, we propose the UCB exploration str ategy. This strategy is
+inspired by established UCB algorithms in the bandit settin g and constructs uncertainty estimates
+of theQ-values. In this strategy, agents are optimistic and take ac tions with the highest UCB. We
+demonstrate that our algorithms signiﬁcantly improve perf ormance on the Atari benchmark.
+Correspondence to: richardchen@openai.com.2 Background
+2.1 Notation
+We model reinforcement learning as a Markov decision proces s (MDP). We deﬁne an MDP as
+(S,A,T,R,p 0,γ), in which both the state space Sand action spaceAare discrete, T:S×A×S/mapsto→
+R+is the transition distribution, R:S×A/mapsto→ Ris the reward function, and γ∈(0,1]is a discount
+factor, and p0is the initial state distribution. We denote a transition ex perience as τ= (s,a,r,s′)
+wheres′∼T(s′|s,a)andr=R(s,a). A policy π:S /mapsto→A speciﬁes the action taken after
+observing a state. We denote the Q-function for policy πasQπ(s,a) :=Eπ/bracketleftbig/summationtext∞
+t=0γtrt|s0=
+s,a0=a/bracketrightbig
+. The optimal Q∗-function corresponds to taking the optimal policy
+Q∗(s,a) := sup
+πQπ(s,a)
+and satisﬁes the Bellman equation
+Q∗(s,a) =Es′∼T(·|s,a)/bracketleftbig
+r+γ·max
+a′Q∗(s′,a′)/bracketrightbig
+.
+2.2 Exploration in reinforcement learning
+A notable early optimality result in reinforcement learnin g was the proof by Watkins and Dayan
+[27, 26] that an online Q-learning algorithm is guaranteed to converge to the optima l policy, provided
+that every state is visited an inﬁnite number of times. Howev er, the convergence of Watkins’ Q-
+learning can be prohibitively slow in MDPs where ǫ-greedy action selection explores state space
+randomly. Later work developed reinforcement learning alg orithms with provably fast (polynomial-
+time) convergence (Kearns and Singh [11], Brafman and Tenne nholtz [5], Strehl et al. [21]). At
+the core of these provably-optimal learning methods is some exploration strategy, which actively
+encourages the agent to visit novel state-action pairs. For example, R-MAX optimistically assumes
+that infrequently-visited states provide maximal reward, and delayed Q-learning initializes the Q-
+function with high values to ensure that each state-action i s chosen enough times to drive the value
+down.
+Since the theoretically sound RL algorithms are not computa tionally practical in the deep RL setting,
+deep RL implementations often use simple exploration metho ds such as ǫ-greedy and Boltzmann
+exploration, which are often sample-inefﬁcient and fail to ﬁnd good policies. One common approach
+of exploration in deep RL is to construct an exploration bonu s, which adds a reward for visiting state-
+action pairs that are deemed to be novel or informative. In pa rticular, several prior methods deﬁne
+an exploration bonus based on a density model or dynamics mod el. Examples include VIME by
+Houthooft et al. [10], which uses variational inference on t he forward-dynamics model, and Tang
+et al. [24], Bellemare et al. [3], Ostrovski et al. [19], Fu et al. [9]. While these methods yield
+successful exploration in some problems, a major drawback i s that this exploration bonus does not
+depend on the rewards, so the exploration may focus on irrele vant aspects of the environment, which
+are unrelated to reward.
+2.3 Bayesian reinforcement learning
+Earlier works on Bayesian reinforcement learning include D earden et al. [7, 8]. Dearden et al. [7]
+studied Bayesian Q-learning in the model-free setting and learned the distrib ution ofQ∗-values
+through Bayesian updates. The prior and posterior speciﬁca tion relied on several simplifying as-
+sumptions, some of which are not compatible with the MDP sett ing. Dearden et al. [8] took a
+model-based approach that updates the posterior distribut ion of the MDP. The algorithm samples
+from the MDP posterior multiple times and solving the Q∗values at every step. This approach is
+only feasible for RL problems with very small state space and action space. Strens [22] proposed
+posterior sampling for reinforcement learning (PSRL). PSR L instead takes a single sample of the
+MDP from the posterior in each episode and solves the Q∗values. Recent works including Os-
+band et al. [16] and Osband and Van Roy [15] established near- optimal Bayesian regret bounds for
+episodic RL. Sorg et al. [20] models the environment and cons tructs exploration bonus from variance
+of model parameters. These methods are experimented on low d imensional problems only, because
+the computational cost of these methods is intractable for h igh dimensional RL.
+22.4 Bootstrapped DQN
+Inspired by PSRL, but wanting to reduce computational cost, prior work developed approxi-
+mate methods. Osband et al. [17] proposed randomized least- square value iteration for linearly-
+parameterized value functions. Bootstrapped DQN Osband et al. [18] applies to Q-functions param-
+eterized by deep neural networks. Bootstrapped DQN (Osband et al. [18]) maintains a Q-ensemble,
+represented by a multi-head neural net structure to paramet erizeK∈N+Q-functions. This multi-
+head structure shares the convolution layers but includes m ultiple “heads”, each of which deﬁnes a
+Q-function Qk.
+Bootstrapped DQN diversiﬁes the Q-ensemble through two mechanisms. The ﬁrst mechanism is
+independent initialization. The second mechanism applies different samples to train each Q-function.
+TheseQ-functions can be trained simultaneously by combining thei r loss functions with the help of
+a random mask mτ∈RK
++
+L=/summationdisplay
+τ∈Bmini/summationdisplayK
+k=1mk
+τ·(Qk(s,a;θ)−yQkτ)2,
+whereyQkτis the target of the kthQ-function. Thus, the transition τupdatesQkonly ifmk
+τis
+nonzero. To avoid the overestimation issue in DQN, bootstra pped DQN calculates the target value
+yQkτusing the approach of Double DQN (Van Hasselt et al. [25]), su ch that the current Qk(·;θt)
+network determines the optimal action and the target networ kQk(·;θ−)estimates the value
+yQkτ=r+γmax
+aQk(s′,argmax
+aQk(s′,a;θt);θ−).
+In their experiments on Atari games, Osband et al. [18] set th e maskmτ= (1,...,1)such that
+all{Qk}are trained with the same samples and their only difference i s initialization. Bootstrapped
+DQN picks one Qkuniformly at random at the start of an episode and follows the greedy action
+at= argmaxaQk(st,a)for the whole episode.
+3 Approximating Bayesian Q-learning with Q-Ensembles
+Ignoring computational costs, the ideal Bayesian approach to reinforcement learning is to maintain a
+posterior over the MDP. However, with limited computation a nd model capacity, it is more tractable
+to maintain a posterior of the Q∗-function. In this section, we ﬁrst derive a posterior updat e formula
+for theQ∗-function under full exploration assumption and this formu la turns out to depend on the
+transition Markov chain (Section 3.1). The Bellman equatio n emerges as an approximation of the
+log-likelihood. This motivates using a Q-ensemble as a particle-based approach to approximate the
+posterior over Q∗-function and an Ensemble V oting algorithm (Section 3.2).
+3.1 Bayesian update for Q∗
+An MDP is speciﬁed by the transition probability Tand the reward function R. Unlike prior works
+outlined in Section 2.3 which learned the posterior of the MD P, we will consider the joint distribution
+over(Q∗,T). Note that Rcan be recovered from Q∗givenT. So(Q∗,T)determines a unique
+MDP. In this section, we assume that the agent samples (s,a)according to a ﬁxed distribution. The
+corresponding reward rand next state s′given by the MDP append to (s,a)to form a transition
+τ= (s,a,r,s′), for updating the posterior of (Q∗,T). Recall that the Q∗-function satisﬁes the
+Bellman equation
+Q(s,a) =r+Es′∼T(·|s,a)/bracketleftBig
+γmax
+a′Q(s′,a′)/bracketrightBig
+.
+Denote the joint prior distribution as p(Q∗,T)and the posterior as ˜p. We apply Bayes’ formula to
+expand the posterior:
+˜p(Q∗,T|τ) =p(τ|Q∗,T)·p(Q∗,T)
+Z(τ)
+=p(Q∗,T)·p(s′|Q∗,T,(s,a))·p(r|Q∗,T,(s,a,s′))·p(s,a)
+Z(τ), (1)
+3whereZ(τ)is a normalizing constant and the second equality is because sandaare sampled ran-
+domly fromSandA. Next, we calculate the two conditional probabilities in (1 ). First,
+p(s′|Q∗,T,(s,a)) =p(s′|T,(s,a)) =T(s′|s,a), (2)
+where the ﬁrst equality is because given T,Q∗does not inﬂuence the transition. Second,
+p(r|Q∗,T,(s,a,s′)) =p(r|Q∗,T,(s,a))
+= /BD{Q∗(s,a)=r+γ·Es′′∼T(·|s,a)maxa′Q∗(s′′,a′)}
+:= /BD(Q∗,T), (3)
+where /BD{·}is the indicator function and in the last equation we abbrevi ate it as /BD(Q∗,T). Substi-
+tuting (2) and (3) into (1), we obtain the joint posterior of Q∗andTafter observing an additional
+randomly sampled transition τ
+˜p(Q∗,T|τ) =p(Q∗,T)·T(s′|s,a)·p(s,a)
+Z(τ)· /BD(Q∗,T). (4)
+We point out that the exact Q∗-posterior update (4) is intractable in high-dimensional R L due to the
+large space of (Q∗,T).
+3.2Q-learning with Q-ensembles
+In this section, we make several approximations to the Q∗-posterior update and derive a tractable
+algorithm. First, we approximate the prior of Q∗by sampling K∈N+independently initialized
+Q∗-functions{Qk}K
+k=1. Next, we update them as more transitions are sampled. The re sulting
+{Qk}approximate samples drawn from the posterior. The agent cho oses the action by taking a
+majority vote from the actions determined by each Qk. We display our method, Ensemble V oting,
+in Algorithm 1.
+We derive the update rule for {Qk}after observing a new transition τ= (s,a,r,s′). At iteration i,
+givenQ∗=Qk,ithe joint probability of (Q∗,T)factors into
+p(Qk,i,T) =p(Q∗,T|Q∗=Qk,i) =p(T|Qk,i). (5)
+Substitute (5) into (4) and we obtain the corresponding post erior for each Qk,i+1at iteration i+1as
+˜p(Qk,i+1,T|τ) =p(T|Qk,i)·T(s′|s,a)·p(s,a)
+Z(τ)· /BD(Qk,i+1,T). (6)
+˜p(Qk,i+1|τ) =/integraldisplay
+T˜p(Qk,i+1,T|τ)dT=p(s,a)·/integraldisplay
+T˜p(T|Qk,i,τ)· /BD(Qk,i+1,T)dT. (7)
+We update Qk,itoQk,i+1according to
+Qk,i+1←argmax
+Qk,i+1˜p(Qk,i+1|τ). (8)
+We ﬁrst derive a lower bound of the the posterior ˜p(Qk,i+1|τ):
+˜p(Qk,i+1|τ) =p(s,a)·ET∼˜p(T|Qk,i,τ)
+/BD(Qk,i+1,T)
+=p(s,a)·ET∼˜p(T|Qk,i,τ)lim
+c→+∞exp/parenleftbig
+−c[Qk,i+1(s,a)−r−γEs′′∼T(·|s,a)max
+a′Qk,i+1(s′′,a′)]2/parenrightbig
+=p(s,a)·lim
+c→+∞ET∼˜p(T|Qk,i,τ)exp/parenleftbig
+−c[Qk,i+1(s,a)−r−γEs′′∼T(·|s,a)max
+a′Qk,i+1(s′′,a′)]2/parenrightbig
+≥p(s,a)·lim
+c→+∞exp/parenleftbig
+−cET∼˜p(T|Qk,i,τ)[Qk,i+1(s,a)−r−γEs′′∼T(·|s,a)max
+a′Qk,i+1(s′′,a′)]2/parenrightbig
+=p(s,a)· /BDET∼˜p(T|Qk,i,τ)[Qk,i+1(s,a)−r−γEs′′∼T(·|s,a)maxa′Qk,i+1(s′′,a′)]2=0. (9)
+where we apply a limit representation of the indicator funct ion in the third equation. The fourth
+equation is due to the bounded convergence theorem. The ineq uality is Jensen’s inequality. The last
+equation (9) replaces the limit with an indicator function.
+A sufﬁcient condition for (8) is to maximize the lower-bound of the posterior distribution in (9) by
+ensuring the indicator function in (9) to hold. We can replac e (8) with the following update
+Qk,i+1←argmin
+Qk,i+1ET∼˜p(T|Qk,i,τ)/bracketleftbig
+Qk,i+1(s,a)−/parenleftbig
+r+γ·Es′′∼T(·|s,a)max
+a′Qk,i+1(s′′,a′)/parenrightbig/bracketrightbig2.
+(10)
+4However, (10) is not tractable because the expectation in (1 0) is taken with respect to the posterior
+˜p(T|Qk,i,τ)of the transition T. To overcome this challenge, we approximate the posterior u pdate
+by reusing the one-sample next state s′fromτsuch that
+Qk,i+1←argmin
+Qk,i+1/bracketleftbig
+Qk,i+1(s,a)−/parenleftbig
+r+γ·max
+a′Qk,i+1(s′,a′)/parenrightbig/bracketrightbig2. (11)
+Instead of updating the posterior after each transition, we use an experience replay buffer Bto store
+observed transitions and sample a minibatch Bminiof transitions (s,a,r,s′)for each update. In this
+case, the batched update of each Qk,itoQk,i+1becomes a standard Bellman update
+Qk,i+1←argmin
+Qk,i+1E(s,a,r,s′)∈Bmini/bracketleftbig
+Qk,i+1(s,a)−/parenleftbig
+r+γ·max
+a′Qk,i+1(s′,a′)/parenrightbig/bracketrightbig2. (12)
+For stability, Algorithm 1 also uses a target network for eac hQkas in Double DQN in the batched
+update. We point out that the action choice of Algorithm 1 is e xploitation only. In the next section,
+we propose two exploration strategies.
+Algorithm 1 Ensemble V oting
+1:Input :K∈N+copies of independently initialized Q∗-functions{Qk}K
+k=1.
+2:LetBbe a replay buffer storing transitions for training
+3:foreach episode dodo
+4: Obtain initial state from environment s0
+5: forstept= 1,... until end of episode do
+6: Pick an action according to at= MajorityVote({argmaxaQk(st,a)}K
+k=1)
+7: Executeat. Receive state st+1and reward rtfrom the environment
+8: Add(st,at,rt,st+1)to replay buffer B
+9: At learning interval, sample random minibatch and update {Qk}
+10: end for
+11:end for
+4 UCB Exploration Strategy Using Q-Ensembles
+In this section, we propose optimism-based exploration by a dapting the UCB algorithms (Auer et al.
+[2], Audibert et al. [1]) from the bandit setting. The UCB alg orithms maintain an upper-conﬁdence
+bound for each arm, such that the expected reward from pullin g each arm is smaller than this bound
+with high probability. At every time step, the agent optimis tically chooses the arm with the highest
+UCB. Auer et al. [2] constructed the UCB based on empirical re ward and the number of times each
+arm is chosen. Audibert et al. [1] incorporated the empirica l variance of each arm’s reward into the
+UCB, such that at time step t, an armAtis pulled according to
+At= argmax
+i/braceleftBig
+ˆri,t+c1·/radicalBigg
+ˆVi,tlog(t)
+ni,t+c2·log(t)
+ni,t/bracerightBig
+whereˆri,tandˆVi,tare the empirical reward and variance of arm iat timet,ni,tis the number of
+times arm ihas been pulled up to time t, andc1,c2are positive constants.
+We extend the intuition of UCB algorithms to the RL setting. U sing the outputs of the {Qk}func-
+tions, we construct a UCB by adding the empirical standard de viation˜σ(st,a)of{Qk(st,a)}K
+k=1to
+the empirical mean ˜µ(st,a)of{Qk(st,a)}K
+k=1. The agent chooses the action that maximizes this
+UCB
+at∈argmax
+a/braceleftbig
+˜µ(st,a)+λ·˜σ(st,a)/bracerightbig
+, (13)
+whereλ∈R+is a hyperparameter.
+We present Algorithm 2, which incorporates the UCB explorat ion. The hyperparemeter λcontrols
+the degrees of exploration. In Section 5, we compare the perf ormance of our algorithms on Atari
+games using a consistent set of parameters.
+5Algorithm 2 UCB Exploration with Q-Ensembles
+1:Input: Value function networks QwithKoutputs{Qk}K
+k=1. Hyperparameter λ.
+2:LetBbe a replay buffer storing experience for training.
+3:foreach episode do
+4: Obtain initial state from environment s0
+5: forstept= 1,... until end of episode do
+6: Pick an action according to at∈argmaxa/braceleftbig
+˜µ(st,a)+λ·˜σ(st,a)/bracerightbig
+7: Receive state st+1and reward rtfrom environment, having taken action at
+8: Add(st,at,rt,st+1)to replay buffer B
+9: At learning interval, sample random minibatch and update {Qk}according to (12)
+10: end for
+11:end for
+5 Experiment
+In this section, we conduct experiments to answer the follow ing questions:
+1. does Ensemble V oting, Algorithm 1, improve upon existing algorithms including Double
+DQN and bootstrapped DQN?
+2. is the proposed UCB exploration strategy of Algorithm 2 ef fective in improving learning
+compared to Algorithm 1?
+3. how does UCB exploration compare with prior exploration m ethods such as the count-
+based exploration method of Bellemare et al. [3]?
+We evaluate the algorithms on each Atari game of the Arcade Le arning Environment (Bellemare
+et al. [4]). We use the multi-head neural net architecture of Osband et al. [18]. We ﬁx the com-
+mon hyperparameters of all algorithms based on a well-tuned double DQN implementation, which
+uses the Adam optimizer (Kingma and Ba [12]), different lear ning rate and exploration schedules
+compared to Mnih et al. [14]. Appendix A tabulates the hyperp arameters. The number of {Qk}
+functions is K= 10 . Experiments are conducted on the OpenAI Gym platform (Broc kman et al.
+[6]) and trained with 40million frames and 2trials on each game.
+We take the following directions to evaluate the performanc e of our algorithms:
+1. we compare Algorithm 1 against Double DQN and bootstrappe d DQN,
+2. we isolate the impact of UCB exploration by comparing Algo rithm 2 with λ= 0.1, denoted
+asucb exploration , against Algorithm 1.
+3. we compare Algorithm 1 and Algorithm 2 with the count-base d exploration method of
+Bellemare et al. [3].
+4. we aggregate the comparison according to different categ ories of games, to understand
+when our methods are suprior.
+Figure 1 compares the normalized learning curves of all algo rithms across Atari games. Overall,
+Ensemble V oting, Algorithm 1, outperforms both Double DQN a nd bootstrapped DQN. With explo-
+ration,ucb exploration improves further by outperforming Ensemble V oting.
+In Appendix B, we tabulate detailed results that compare our algorithms, Ensemble V oting and
+ucb exploration , against prior methods. In Table 2, we tabulate the maximal m ean reward in
+100consecutive episodes for Ensemble V oting, ucb exploration , bootstrapped DQN and Dou-
+ble DQN. Without exploration, Ensemble V oting already achi eves higher maximal mean reward
+than both Double DQN and bootstrapped DQN in a majority of Ata ri games. ucb exploration
+achieves the highest maximal mean reward among these four al gorithms in 30 games out of
+the total 49 games evaluated. Figure 2 displays the learning curves of these ﬁve algorithms on
+a set of six Atari games. Ensemble V oting outperforms Double DQN and bootstrapped DQN.
+ucb exploration outperforms Ensemble V oting.
+In Table 3, we compare our proposed methods with the count-ba sed exploration method A3C+ of
+Bellemare et al. [3] based on their published results of A3C+ trained with 200 million frames. We
+60.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0
+Frames 1e70.00.10.20.30.40.50.60.70.8Average Normalized Learning Curve
+bootstrapped dqn
+ucb exploration
+ensemble voting
+double dqn
+Figure 1: Comparison of algorithms in normalized learning c urve. The normalized learning curve is
+calculated as follows: ﬁrst, we normalize learning curves f or all algorithms in the same game to the
+interval[0,1]; next, average the normalized learning curve from all games for each algorithm.
+point out that even though our methods were trained with only 40 million frames, much less than
+A3C+’s 200 million frames, UCB exploration achieves the hig hest average reward in 28 games,
+Ensemble V oting in 10 games, and A3C+ in 10 games. Our approac h outperforms A3C+.
+Finally to understand why and when the proposed methods are s uperior, we aggregate the com-
+parison results according to four categories: Human Optima l, Score Explicit, Dense Reward, and
+Sparse Reward. These categories follow the taxonomy in Tabl e 1 of Ostrovski et al. [19]. Out of all
+games evaluated, 23 games are Human Optimal, 8 are Score Expl icit, 8 are Dense Reward, and 5 are
+Sparse Reward. The comparison results are tabulated in Tabl e 4, where we see ucb exploration
+achieves top performance in more games than Ensemble V oting , Double DQN, and Bootstrapped
+DQN in the categories of Human Optimal, Score Explicit, and D ense Reward. In Sparse Reward,
+bothucb exploration and Ensemble V oting achieve best performance in 2 games out o f total of
+5. Thus, we conclude that ucb exploration improves prior methods consistently across different
+game categories within the Arcade Learning Environment.
+6 Conclusion
+We proposed a Q-ensemble approach to deep Q-learning, a computationally practical algorithm in-
+spired by Bayesian reinforcement learning that outperform s Double DQN and bootstrapped DQN,
+as evaluated on Atari. The key ingredient is the UCB explorat ion strategy, inspired by bandit algo-
+rithms. Our experiments show that the exploration strategy achieves improved learning performance
+on the majority of Atari games.
+References
+[1] Jean-Yves Audibert, Rémi Munos, and Csaba Szepesvári. E xploration–exploitation tradeoff
+using variance estimates in multi-armed bandits. Theor. Comput. Sci. , 410(19):1876–1902,
+2009.
+[2] Peter Auer, Nicolo Cesa-Bianchi, and Paul Fischer. Fini te-time analysis of the multiarmed
+bandit problem. Mach. Learn. , 47(2-3):235–256, 2002.
+70.00.51.01.52.02.53.03.54.0
+Frames 1e70100002000030000400005000060000DemonAttack
+0.00.51.01.52.02.53.03.54.0
+Frames 1e7050010001500200025003000Enduro
+0.00.51.01.52.02.53.03.54.0
+Frames 1e70200040006000800010000120001400016000Kangaroo
+0.00.51.01.52.02.53.03.54.0
+Frames 1e70200040006000800010000120001400016000Riverraid
+0.00.51.01.52.02.53.03.54.0
+Frames 1e70500010000150002000025000Seaquest
+0.00.51.01.52.02.53.03.54.0
+Frames 1e705000100001500020000UpNDown
+double dqn
+bootstrapped dqn
+ensemble voting
+ucb exploration
+Figure 2: Comparison of UCB Exploration and Ensemble V oting against Double DQN and Boot-
+strapped DQN.
+[3] Marc Bellemare, Sriram Srinivasan, Georg Ostrovski, To m Schaul, David Saxton, and Remi
+Munos. Unifying count-based exploration and intrinsic mot ivation. In NIPS , pages 1471–1479,
+2016.
+[4] Marc G Bellemare, Yavar Naddaf, Joel Veness, and Michael Bowling. The arcade learning
+environment: An evaluation platform for general agents. J. Artif. Intell. Res. , 47:253–279,
+2013.
+[5] Ronen I Brafman and Moshe Tennenholtz. R-max-a general p olynomial time algorithm for
+near-optimal reinforcement learning. J. Mach. Learn. Res. , 3(Oct):213–231, 2002.
+[6] Greg Brockman, Vicki Cheung, Ludwig Pettersson, Jonas S chneider, John Schulman, Jie Tang,
+and Wojciech Zaremba. OpenAI Gym. arXiv preprint arXiv:1606.01540 , 2016.
+[7] Richard Dearden, Nir Friedman, and Stuart Russell. Baye sian Q-learning. In AAAI/IAAI , pages
+761–768, 1998.
+[8] Richard Dearden, Nir Friedman, and David Andre. Model ba sed Bayesian exploration. In UAI,
+pages 150–159, 1999.
+[9] Justin Fu, John D Co-Reyes, and Sergey Levine. EX2: Explo ration with exemplar models for
+deep reinforcement learning. arXiv preprint arXiv:1703.01260 , 2017.
+[10] Rein Houthooft, Xi Chen, Yan Duan, John Schulman, Filip De Turck, and Pieter Abbeel.
+VIME: Variational information maximizing exploration. In NIPS , pages 1109–1117, 2016.
+[11] Michael Kearns and Satinder Singh. Near-optimal reinf orcement learning in polynomial time.
+Mach. Learn. , 49(2-3):209–232, 2002.
+[12] Diederik Kingma and Jimmy Ba. Adam: A method for stochas tic optimization. arXiv preprint
+arXiv:1412.6980 , 2014.
+[13] Balaji Lakshminarayanan, Alexander Pritzel, and Char les Blundell. Simple and scalable pre-
+dictive uncertainty estimation using deep ensembles. arXiv preprint arXiv:1612.01474 , 2016.
+8[14] V olodymyr Mnih, Koray Kavukcuoglu, David Silver, Andr ei A Rusu, Joel Veness, Marc G
+Bellemare, Alex Graves, Martin Riedmiller, Andreas K Fidje land, Georg Ostrovski, et al.
+Human-level control through deep reinforcement learning. Nature , 518(7540):529–533, 2015.
+[15] Ian Osband and Benjamin Van Roy. Why is posterior sampli ng better than optimism for rein-
+forcement learning. arXiv preprint arXiv:1607.00215 , 2016.
+[16] Ian Osband, Dan Russo, and Benjamin Van Roy. (More) efﬁc ient reinforcement learning via
+posterior sampling. In NIPS , pages 3003–3011, 2013.
+[17] Ian Osband, Benjamin Van Roy, and Zheng Wen. Generaliza tion and exploration via random-
+ized value functions. arXiv preprint arXiv:1402.0635 , 2014.
+[18] Ian Osband, Charles Blundell, Alexander Pritzel, and B enjamin Van Roy. Deep exploration
+via bootstrapped DQN. In NIPS , pages 4026–4034, 2016.
+[19] Georg Ostrovski, Marc G Bellemare, Aaron van den Oord, a nd Remi Munos. Count-based
+exploration with neural density models. arXiv preprint arXiv:1703.01310 , 2017.
+[20] Jonathan Sorg, Satinder Singh, and Richard L Lewis. Var iance-based rewards for approximate
+bayesian reinforcement learning. arXiv preprint arXiv:1203.3518 , 2012.
+[21] Alexander L Strehl, Lihong Li, Eric Wiewiora, John Lang ford, and Michael L Littman. Pac
+model-free reinforcement learning. In ICML , pages 881–888. ACM, 2006.
+[22] Malcolm Strens. A Bayesian framework for reinforcemen t learning. In ICML , pages 943–950,
+2000.
+[23] Yi Sun, Faustino Gomez, and Jürgen Schmidhuber. Planni ng to be surprised: Optimal Bayesian
+exploration in dynamic environments. In ICAGI , pages 41–51. Springer, 2011.
+[24] Haoran Tang, Rein Houthooft, Davis Foote, Adam Stooke, Xi Chen, Yan Duan, John Schul-
+man, Filip De Turck, and Pieter Abbeel. # Exploration: A stud y of count-based exploration
+for deep reinforcement learning. arXiv preprint arXiv:1611.04717 , 2016.
+[25] Hado Van Hasselt, Arthur Guez, and David Silver. Deep re inforcement learning with double
+Q-learning. In AAAI , pages 2094–2100, 2016.
+[26] Christopher JCH Watkins and Peter Dayan. Q-learning. Mach. Learn. , 8(3-4):279–292, 1992.
+[27] Christopher John Cornish Hellaby Watkins. Learning from delayed rewards . PhD thesis, Uni-
+versity of Cambridge England, 1989.
+9A Hyperparameters
+We tabulate the hyperparameters in our well-tuned implemen tation of double DQN in Table 1:
+hyperparameter value descriptions
+total training frames 40million Length of training for each game.
+minibatch size 32 Size of minibatch samples for
+each parameter update.
+replay buffer size 1000000 The number of most recent frames
+stored in replay buffer.
+agent history length 4 The number of most recent frames
+concatenated as input to the Q net-
+work. Total number of iterations
+= total training frames / agent his-
+tory length.
+target network
+update frequency10000 The frequency of updating target
+network, in the number of parame-
+ter updates.
+discount factor 0.99 Discount factor for Q value.
+action repeat 4 Repeat each action selected by the
+agent this many times. A value of
+4 means the agent sees every 4th
+frame.
+update frequency 4 The number of actions between
+successive parameter updates.
+optimizer Adam Optimizer for parameter updates.
+β1 0.9 Adam optimizer parameter.
+β2 0.99 Adam optimizer parameter.
+ǫ 10−4Adam optimizer parameter.
+learning rate sched-
+ule
+
+10−4t≤106
+Interp(10−4,5∗10−5)otherwise
+5∗10−5t >5∗106Learning rate for Adam optimizer,
+as a function of iteration t.
+exploration schedule
+
+Interp(1,0.1)t <106
+Interp(0.1,0.01) otherwise
+0.01 t >5∗106Probability of random action in ǫ-
+greedy exploration, as a function
+of the iteration t.
+replay start size 50000 Number of uniform random ac-
+tions taken before learning starts.
+Table 1: Double DQN hyperparameters. These hyperparameter s are selected based on performances
+of seven Atari games: Beam Rider, Breakout, Pong, Enduro, Qb ert, Seaquest, and Space Invaders.
+Interp(·,·)is linear interpolation between two values.
+10B Results tables
+Bootstrapped DQN Double DQN Ensemble V oting UCB-Explorati on
+Alien 1445.1 2059.7 2282.8 2817.6
+Amidar 430.58 667.5 683.72 663.8
+Assault 2519.06 2820.61 3213.58 3702.76
+Asterix 3829.0 7639.5 8740.0 8732.0
+Asteroids 1009.5 1002.3 1149.3 1007.8
+Atlantis 1314058.0 1982677.0 1786305.0 2016145.0
+Bank Heist 795.1 789.9 869.4 906.9
+Battle Zone 26230.0 24880.0 27430.0 26770.0
+Beam Rider 8006.58 7743.74 7991.9 9188.26
+Bowling 28.62 30.92 32.92 38.06
+Boxing 85.91 94.07 94.47 98.08
+Breakout 400.22 467.45 426.78 411.31
+Centipede 5328.77 5177.51 6153.28 6237.18
+Chopper Command 2153.0 3260.0 3544.0 3677.0
+Crazy Climber 110926.0 124456.0 126677.0 127754.0
+Demon Attack 9811.45 23562.55 30004.4 59861.9
+Double Dunk -10.82 -14.58 -11.94 -4.08
+Enduro 1314.31 1439.59 1999.88 2752.55
+Fishing Derby 21.89 23.69 30.02 29.71
+Freeway 33.57 32.93 33.92 33.96
+Frostbite 1284.8 529.2 1196.0 1903.0
+Gopher 7652.2 12030.0 10993.2 12910.8
+Gravitar 227.5 279.5 371.5 318.0
+Ice Hockey -4.62 -4.63 -1.73 -4.71
+Jamesbond 594.5 594.0 602.0 710.0
+Kangaroo 8186.0 7787.0 8174.0 14196.0
+Krull 8537.52 8517.91 8669.17 9171.61
+Kung Fu Master 24153.0 32896.0 30988.0 31291.0
+Montezuma Revenge 2.0 4.0 1.0 4.0
+Ms Pacman 2508.7 2498.1 3039.7 3425.4
+Name This Game 8212.4 9806.9 9255.1 9570.5
+Pitfall -5.99 -7.57 -3.37 -1.47
+Pong 21.0 20.67 21.0 20.95
+Private Eye 1815.19 788.63 1845.28 1252.01
+Qbert 10557.25 6529.5 12036.5 14198.25
+Riverraid 11528.0 11834.7 12785.8 15622.2
+Road Runner 52489.0 49039.0 54768.0 53596.0
+Robotank 21.03 29.8 31.83 41.04
+Seaquest 9320.7 18056.4 20458.6 24001.6
+Space Invaders 1549.9 1917.5 1890.8 2626.55
+Star Gunner 20115.0 52283.0 41684.0 47367.0
+Tennis -15.11 -14.04 -11.63 -7.8
+Time Pilot 5088.0 5548.0 6153.0 6490.0
+Tutankham 167.47 223.43 208.61 200.76
+Up N Down 9049.1 11815.3 19528.3 19827.3
+Venture 115.0 96.0 78.0 67.0
+Video Pinball 364600.85 374686.89 343380.29 372564.11
+Wizard Of Wor 2860.0 3877.0 5451.0 5873.0
+Zaxxon 592.0 8903.0 3901.0 3695.0
+Times best 1 7 9 30
+Table 2: Comparison of maximal mean rewards achieved by agen ts. Maximal mean reward is calcu-
+lated in a window of 100consecutive episodes. Bold denotes the highest value in eac h row.
+11Ensemble V oting UCB-Exploration A3C+
+Alien 2282.8 2817.6 1848.33
+Amidar 683.72 663.8 964.77
+Assault 3213.58 3702.76 2607.28
+Asterix 8740.0 8732.0 7262.77
+Asteroids 1149.3 1007.8 2257.92
+Atlantis 1786305.0 2016145.0 1733528.71
+Bank Heist 869.4 906.9 991.96
+Battle Zone 27430.0 26770.0 7428.99
+Beam Rider 7991.9 9188.26 5992.08
+Bowling 32.92 38.06 68.72
+Boxing 94.47 98.08 13.82
+Breakout 426.78 411.31 323.21
+Centipede 6153.28 6237.18 5338.24
+Chopper Command 3544.0 3677.0 5388.22
+Crazy Climber 126677.0 127754.0 104083.51
+Demon Attack 30004.4 59861.9 19589.95
+Double Dunk -11.94 -4.08 -8.88
+Enduro 1999.88 2752.55 749.11
+Fishing Derby 30.02 29.71 29.46
+Freeway 33.92 33.96 27.33
+Frostbite 1196.0 1903.0 506.61
+Gopher 10993.2 12910.8 5948.40
+Gravitar 371.5 318.0 246.02
+Ice Hockey -1.73 -4.71 -7.05
+Jamesbond 602.0 710.0 1024.16
+Kangaroo 8174.0 14196.0 5475.73
+Krull 8669.17 9171.61 7587.58
+Kung Fu Master 30988.0 31291.0 26593.67
+Montezuma Revenge 1.0 4.0 142.50
+Ms Pacman 3039.7 3425.4 2380.58
+Name This Game 9255.1 9570.5 6427.51
+Pitfall -3.37 -1.47 -155.97
+Pong 21.0 20.95 17.33
+Private Eye 1845.28 1252.01 100.0
+Qbert 12036.5 14198.25 15804.72
+Riverraid 12785.8 15622.2 10331.56
+Road Runner 54768.0 53596.0 49029.74
+Robotank 31.83 41.04 6.68
+Seaquest 20458.6 24001.6 2274.06
+Space Invaders 1890.8 2626.55 1466.01
+Star Gunner 41684.0 47367.0 52466.84
+Tennis -11.63 -7.8 -20.49
+Time Pilot 6153.0 6490.0 3816.38
+Tutankham 208.61 200.76 132.67
+Up N Down 19528.3 19827.3 8705.64
+Venture 78.0 67.0 0.00
+Video Pinball 343380.29 372564.11 35515.92
+Wizard Of Wor 5451.0 5873.0 3657.65
+Zaxxon 3901.0 3695.0 7956.05
+Times Best 10 28 10
+Table 3: Comparison of Ensemble V oting, UCB Exploration, bo th trained with 40 million frames
+and A3C+ of [3], trained with 200 million frames
+12Category Total Bootstrapped DQN Double DQN Ensemble V oting UCB-Exploration
+Human Optimal 23 0 3 5 15
+Score Explicit 8 0 2 1 5
+Dense Reward 8 0 1 1 6
+Sparse Reward 5 1 0 2 2
+Table 4: Comparison of each method across different game cat egories. The Atari games are sep-
+arated into four categories: human optimal, score explicit , dense reward, and sparse reward. In
+each row, we present the number of games in this category, the total number of games where each
+algorithm achieves the optimal performance according to Ta ble 2. The game categories follow the
+taxonomy in Table 1 of [19]
+C InfoGain exploration
+In this section, we also studied an “InfoGain” exploration b onus, which encourages agents to gain
+information about the Q∗-function and examine its effectiveness. We found it had som e beneﬁts on
+top of Ensemble V oting, but no uniform additional beneﬁts on ce already using Q-ensembles on top
+of Double DQN. We describe the approach and our experimental ﬁndings here.
+Similar to Sun et al. [23], we deﬁne the information gain from observing an additional transition τn
+as
+Hτt|τ1,...,τn−1=DKL(˜p(Q∗|τ1,...,τ n)||˜p(Q∗|τ1,...,τ n−1))
+where˜p(Q∗|τ1,...,τ n)is the posterior distribution of Q∗after observing a sequence of transitions
+(τ1,...,τ n). The total information gain is
+Hτ1,...,τN=/summationdisplayN
+n=1Hτn|τ1,...,τn−1. (14)
+Our Ensemble V oting, Algorithm 1, does not maintain the post erior˜p, thus we cannot calculate (14)
+explicitly. Instead, inspired by Lakshminarayanan et al. [ 13], we deﬁne an InfoGain exploration
+bonus that measures the disagreement among {Qk}. Note that
+Hτ1,...,τN+H(˜p(Q∗|τ1,...,τ N)) =H(p(Q∗)),
+whereH(·)is the entropy. If Hτ1,...,τNis small, then the posterior distribution has high entropy a nd
+high residual information. Since {Qk}are approximate samples from the posterior, high entropy of
+the posterior leads to large discrepancy among {Qk}. Thus, the exploration bonus is monotonous
+with respect to the residual information in the posterior H(˜p(Q∗|τ1,...,τ N)). We ﬁrst compute the
+Boltzmann distribution for each Qk
+PT,k(a|s) =exp/parenleftbig
+Qk(s,a)/T/parenrightbig
+/summationtext
+a′exp/parenleftbig
+Qk(s,a′)/T/parenrightbig,
+whereT>0is a temperature parameter. Next, calculate the average Bol tzmann distribution
+PT,avg=1
+K·/summationdisplayK
+k=1PT,k(a|s).
+The InfoGain exploration bonus is the average KL-divergenc e from{PT,k}K
+k=1toPT,avg
+bT(s) =1
+K·/summationdisplayK
+k=1DKL[PT,k||PT,avg]. (15)
+The modiﬁed reward is
+ˆr(s,a,s′) =r(s,a)+ρ·bT(s), (16)
+whereρ∈R+is a hyperparameter that controls the degree of exploration .
+The exploration bonus bT(st)encourages the agent to explore where {Qk}disagree. The tempera-
+ture parameter Tcontrols the sensitivity to discrepancies among {Qk}. WhenT→+∞,{PT,k}
+converge to the uniform distribution on the action space and bT(s)→0. WhenTis small, the
+differences among {Qk}are magniﬁed and bT(s)is large.
+We display Algorithrim 3, which incorporates our InfoGain e xploration bonus into Algorithm 2. The
+hyperparameters λ,Tandρvary for each game.
+13Algorithm 3 UCB + InfoGain Exploration with Q-Ensembles
+1:Input: Value function networks QwithKoutputs{Qk}K
+k=1. Hyperparameters T,λ, andρ.
+2:LetBbe a replay buffer storing experience for training.
+3:foreach episode do
+4: Obtain initial state from environment s0
+5: forstept= 1,... until end of episode do
+6: Pick an action according to at∈argmaxa/braceleftbig
+˜µ(st,a)+λ·˜σ(st,a)/bracerightbig
+7: Receive state st+1and reward rtfrom environment, having taken action at
+8: Calculate exploration bonus bT(st)according to (15)
+9: Add(st,at,rt+ρ·bT(st),st+1)to replay buffer B
+10: At learning interval, sample random minibatch and update {Qk}
+11: end for
+12:end for
+C.1 Performance of UCB+InfoGain exploration
+We demonstrate the performance of the combined UCB+InfoGai n exploration in Figure 3
+and Figure 3. We augment the previous ﬁgures in Section 5 with the performance of
+ucb+infogain exploration , where we set λ= 0.1,ρ= 1, andT= 1in Algorithm 3.
+Figure 3 shows that combining UCB and InfoGain exploration d oes not lead to uniform improve-
+ment in the normalized learning curve.
+At the individual game level, Figure 3 shows that the impact o f InfoGain exploration varies. UCB
+exploration achieves sufﬁcient exploration in games inclu ding Demon Attack and Kangaroo and
+Riverraid, while InfoGain exploration further improves le arning on Enduro, Seaquest, and Up N
+Down. The effect of InfoGain exploration depends on the choi ce of the temperature T. The
+optimal temperature parameter varies across games. In Figu re 5, we display the behavior of
+ucb+infogain exploration with different temperature values. Thus, we see the InfoGai n ex-
+ploration bonus, tuned with the appropriate temperature pa rameter, can lead to improved learning
+for games that require extra exploration, such as ChopperCo mmand, KungFuMaster, Seaquest, Up-
+NDown.
+140.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0
+Frames 1e70.00.10.20.30.40.50.60.70.8Average Normalized Learning Curve
+ucb+infogain 
+exploration, T=1
+bootstrapped dqn
+ensemble voting
+ucb exploration
+double dqn
+Figure 3: Comparison of all algorithms in normalized curve. The normalized learning curve is
+calculated as follows: ﬁrst, we normalize learning curves f or all algorithms in the same game to the
+interval[0,1]; next, average the normalized learning curve from all games for each algorithm.
+0.00.51.01.52.02.53.03.54.0
+Frames 1e70100002000030000400005000060000DemonAttack
+0.00.51.01.52.02.53.03.54.0
+Frames 1e7050010001500200025003000Enduro
+0.00.51.01.52.02.53.03.54.0
+Frames 1e70200040006000800010000120001400016000Kangaroo
+0.00.51.01.52.02.53.03.54.0
+Frames 1e70200040006000800010000120001400016000Riverraid
+0.00.51.01.52.02.53.03.54.0
+Frames 1e7050001000015000200002500030000Seaquest
+0.00.51.01.52.02.53.03.54.0
+Frames 1e70500010000150002000025000UpNDown
+ucb exploration
+bootstrapped dqn
+ensemble voting
+ucb+infogain 
+exploration, T=1
+double dqn
+Figure 4: Comparison of algorithms against Double DQN and bo otstrapped DQN.
+15C.2 UCB+InfoGain exploration with different temperatures
+0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0
+Frames 1e7050010001500200025003000Alien
+0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0
+Frames 1e70100200300400500600700Amidar
+0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0
+Frames 1e7050001000015000200002500030000BattleZone
+0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0
+Frames 1e7050010001500200025003000350040004500ChopperCommand
+0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0
+Frames 1e705101520253035Freeway
+0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0
+Frames 1e7−16−14−12−10−8−6−4−2IceHocke6
+0.0 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0
+Frame0 1e70100200300400500600700Jamesbond
+0.00.51.01.52.02.53.03.54.0
+Frames 1e7050001000015000200002500030000KungFuMaster
+0.00.51.01.52.02.53.03.54.0
+Frames 1e7050001000015000200002500030000Seaquest
+0.00.51.01.52.02.53.03.54.0
+Frames 1e705001000150020002500SpaceInvaders
+0.00.51.01.52.02.53.03.54.0
+Frames 1e701000200030004000500060007000TimePilot
+0.00.51.01.52.02.53.03.54.0
+Frames 1e70500010000150002000025000UpNDown
+ucb-exploration
+ucb+infogain 
+exploration , T=1
+ucb+infogain 
+exploration, T= 50
+ucb+infogain  
+exploration , T=100
+Figure 5: Comparison of UCB+InfoGain exploration with diff erent temperatures versus UCB explo-
+ration.
+16
