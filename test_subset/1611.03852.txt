@@ -1,0 +1,522 @@
+arXiv:1611.03852v3  [cs.LG]  25 Nov 2016A ConnectionBetweenGenerativeAdversarial
+Networks,InverseReinforcementLearning,and
+Energy-BasedModels
+ChelseaFinn∗, PaulChristiano∗, PieterAbbeel, SergeyLevine
+UniversityofCalifornia,Berkeley
+{cbfinn,paulfchristiano,pabbeel,svlevine}@eecs.berk eley.edu
+Abstract
+Generative adversarial networks (GANs) are a recently prop osedclass of genera-
+tivemodelsinwhichageneratoristrainedtooptimizeacost functionthatisbeing
+simultaneously learned by a discriminator. While the idea o f learning cost func-
+tionsis relativelynew to the ﬁeld of generativemodeling,l earningcosts has long
+been studied in control and reinforcement learning (RL) dom ains, typically for
+imitationlearningfromdemonstrations. Inthese ﬁelds, le arningthe costfunction
+underlyingobservedbehaviorisknownasinversereinforce mentlearning(IRL)or
+inverseoptimalcontrol. While atﬁrst theconnectionbetwe encost learninginRL
+and cost learning in generative modeling may appear to be a su perﬁcial one, we
+showin thispaperthatcertainIRL methodsarein fact mathem aticallyequivalent
+to GANs. In particular, we demonstrate an equivalence betwe en a sample-based
+algorithmformaximumentropyIRLandaGAN inwhichthegener ator’sdensity
+canbe evaluatedandis providedasan additionalinputto the discriminator. Inter-
+estingly, maximum entropy IRL is a special case of an energy- based model. We
+discusstheinterpretationofGANsasanalgorithmfortrain ingenergy-basedmod-
+els, andrelate thisinterpretationtootherrecentworktha tseekstoconnectGANs
+and EBMs. By formally highlighting the connection between G ANs, IRL, and
+EBMs, we hope that researchers in all three communities can b etter identify and
+apply transferable ideas from one domain to another, partic ularly for developing
+morestable andscalablealgorithms: a majorchallengein al l threedomains.
+1 Introduction
+Generativeadversarialnetworks(GANs)arearecentlyprop osedclassofgenerativemodelsinwhich
+a generatoris trainedto optimizea cost functionthat is bei ngsimultaneouslylearnedby a discrimi-
+nator[8]. While the ideaoflearningobjectivesisrelative lynewto theﬁeld ofgenerativemodeling,
+learningcostorrewardfunctionshaslongbeenstudiedinco ntrol[5]andwaspopularizedin2000for
+reinforcementlearningproblems[15]. In these ﬁelds, lear ningthe cost functionunderlyingdemon-
+strated behavior is referred to as inverse reinforcement le arning (IRL) or inverse optimal control
+(IOC). At ﬁrst glance, the connectionbetween cost learning in RL and cost learning for generative
+models may appear to be superﬁcial; however, if we apply GANs to a setting where the generator
+density can be efﬁciently evaluated, the result is exactly e quivalent to a sample-based algorithm
+for maximum entropy (MaxEnt) IRL. Interestingly, as MaxEnt IRL is an energy-basedmodel, this
+connectionsuggestsa methodforusingGANstotraina broade rclassofenergy-basedmodels.
+MaxEnt IRL is a widely-used objective for IRL, proposed by Zi ebart et al. [27]. Sample-based
+algorithms for performingmaximum entropy (MaxEnt) IRL hav e scaled cost learning to scenarios
+∗Indicates equal contribution.with unknown dynamics, using nonlinear function classes, s uch as neural networks [4, 11, 7]. We
+show that the gradient updates for the cost and the policy in t hese methods can be viewed as the
+updates for the discriminator and generator in GANs, under a speciﬁc form of the discriminator.
+The key difference to a generic discriminator is that we need to be able evaluate the density of the
+generator,whichwe integrateintothediscriminatorina na turalway.
+Traditionally, GANs are used to train generative models for which it is not possible to evaluate the
+density. When it is possible to evaluate the density, for exa mple in an autoregressive model, it is
+typical to maximize the likelihood of the data directly. By c onsidering the connection to IRL, we
+ﬁnd that GAN training may be appropriate even when density va lues are available. For example,
+suppose we are interested in modeling a complex multimodal d istribution, but our model does not
+have enough capacity to represent the distribution. Then ma ximizing likelihood will lead to a dis-
+tribution which “covers” all of the modes, but puts most of it s mass in parts of the space that have
+negligibledensityunderthedatadistribution. Thesemigh tbeimagesthatlookextremelyunrealistic,
+nonsensical sentences, or suboptimal robot behavior. A gen eratortrained adversariallywill instead
+try to “ﬁll in” as many of modes as it can, without putting much mass in the space between modes.
+This results in lower diversity, but ensures that samples “l ook like” they could have been from the
+originaldata.
+By drawing an exact correspondence between adaptive, sampl e-based algorithms for MaxEnt IRL
+and GAN training, we show that this phenomenonoccurs and is p ractically important: GAN train-
+ingcansigniﬁcantlyimprovethequalityofsamplesevenwhe nthegeneratordensitycanbeexactly
+evaluated. Thisispreciselyanalogoustotheobservedabil ityofinversereinforcementlearningtoim-
+itatebehaviorsthatcannotbesuccessfullylearnedthroug hbehavioralcloning[21],directmaximum
+likelihoodregressionto thedemonstratedbehavior.
+Interestingly,the maximum entropyformulationof IRL is a s pecial case of an energy-basedmodel
+(EBM) [26]. The learned cost in MaxEnt IRL corresponds to the energy function, and is trained
+via maximum likelihood. Hence, we can also show how a particu lar form of GANs can be used
+to train EBMs. Recent works have recognized a connection bet ween EBMs and GANs [12, 25].
+In this work, we particularly focus on EBMs trained with maxi mum likelihood, and expand upon
+the connectionrecognizedby Kim & Bengio [12] forthe case wh ere the generator’sdensity can be
+computed. By formally highlightingthe connectionbetween GANs, IRL, and EBMs, we hopethat
+researchers in all three areas can better identify and apply transferable ideas from one domain to
+another.
+2 Background
+In this section, we formally deﬁne generative adversarial n etworks (GANs), energy-based models
+(EBMs),andinversereinforcementlearning(IRL),andintr oducenotation.
+2.1 GenerativeAdversarialNetworks
+Generative adversarial networks are an approach to generat ive modeling where two models are
+trained simultaneously: a generator Gand a discriminator D. The discriminator is tasked with
+classifying its inputs as either the output of the generator , or actual samples from the underlying
+data distribution p(x). The goal of the generator is to produce outputs that are clas siﬁed by the
+discriminatorascomingfromthe underlyingdatadistribut ion[8].
+Formally, the generator takes noise as input and outputs a sa mplex∼G, while the discriminator
+takes as input a sample xand outputsthe probability D(x)that the sample was from the data distri-
+bution. The discriminator’sloss isthe averagelog probabi lityit assignsto thecorrectclassiﬁcation,
+evaluatedonanequalmixtureofrealsamplesandoutputsfro mthegenerator:
+Ldiscriminator (D)=Ex∼p[−logD(x)]+Ex∼G[−log(1−D(x))].
+The generator’sloss can be deﬁned one of several similar way s. The simplest deﬁnition, originally
+proposed in [8], is simply the opposite of the discriminator ’s loss. However, this provides very
+little trainingsignal if thegenerator’soutputcanbe easi ly distinguishedfromthereal samples. It is
+common to instead use the log of the discriminator’s confusi on [8]. We will deﬁne the generator’s
+lossasthesumofthesetwo variants:
+Lgenerator(G)=Ex∼G[−logD(x)]+Ex∼G[log(1−D(x))].
+22.2 Energy-BasedModels
+Energy-basedmodels[14] associate an energyvalue Eθ(x)with a sample x, modelingthe dataas a
+Boltzmanndistribution:
+pθ(x)=1
+Zexp(−Eθ(x)) (1)
+The energy function parameters θare often chosen to maximize the likelihood of the data; the
+main challenge in this optimization is evaluating the parti tion function Z, which is an intractable
+sum or integralformost high-dimensionalproblems. A commo napproachto estimating Zrequires
+samplingfromthe Boltzmanndistribution pθ(x)withintheinnerloopoflearning.
+Samplingfrom pθ(x)canbeapproximatedbyusingMarkovchainMonteCarlo(MCMC) methods;
+however,thesemethodsface issueswhenthereareseveraldi stinctmodesofthedistributionand,as
+aresult,cantakearbitrarilylargeamountsoftimetoprodu ceadiversesetofsamples. Approximate
+inference methods can also be used during training, though t he energy function may incorrectly
+assignlow energytosomemodesiftheapproximateinference methodcannotﬁndthem[14].
+2.3 InverseReinforcementLearning
+The goal of inverse reinforcement learning is to infer the co st function underlying demonstrated
+behavior[15]. Itistypicallyassumedthatthedemonstrati onscomefromanexpertwhoisbehaving
+near-optimallyundersome unknowncost. In this section, we discuss MaxEnt IRL and guidedcost
+learning,analgorithmforMaxEntIRL.
+2.3.1 Maximum entropyinversereinforcementlearning
+Maximum entropy inverse reinforcement learning models the demonstrations using a Boltzmann
+distribution,wherethe energyisgivenbythecostfunction cθ:
+pθ(τ)=1
+Zexp(−cθ(τ)),
+Here,τ={x1,u1,...,xT,uT}is a trajectory; cθ(τ) =∑tcθ(xt,ut)is a learned cost function
+parametrized by θ;xtandutare the state and action at time step t; and the partition function Z
+is the integral of exp (−cθ(τ))over all trajectories that are consistent with the environm entdynam-
+ics.2
+Under this model, the optimal trajectories have the highest likelihood, and the expert can generate
+suboptimal trajectories with a probability that decreases exponentially as the trajectories become
+morecostly. Asinotherenergy-basedmodels,theparameter sθareoptimizedtomaximizethelike-
+lihoodofthe demonstrations. Estimatingthe partitionfun ctionZis difﬁcult forlargeor continuous
+domains, and presents the main computationalchallenge. Th e ﬁrst applicationsof this model com-
+putedZexactly with dynamic programming[27]. However, this is onl y practical in small, discrete
+domains,andisimpossiblein domainswherethesystem dynam icsp(xt+1|xt,ut)areunknown.
+2.3.2 Guided costlearning
+Guided cost learning introduces an iterative sample-based method for estimating Zin the Max-
+Ent IRL formulation, and can scale to high-dimensionalstat e and action spaces and nonlinear cost
+functions [7]. The algorithm estimates Zby training a new sampling distribution q(τ)and using
+importancesampling:
+Lcost(θ)=Eτ∼p[−logpθ(τ)]=Eτ∼p[cθ(τ)]+logZ
+=Eτ∼p[cθ(τ)]+log/parenleftbigg
+Eτ∼q/bracketleftbiggexp(−cθ(τ))
+q(τ)/bracketrightbigg/parenrightbigg
+.
+Guided cost learning alternates between optimizing cθusing this estimate, and optimizing q(τ)to
+minimizethe varianceofthe importancesamplingestimate.
+2This formula assumes that xt+1is a deterministic function of the previous history. A more g eneral form
+of this equation can be derived for stochastic dynamics [26] . However, the analysis largely remains the same:
+the probability of a trajectory can be written as the product of conditional probabilities, but the conditional
+probabilities of the states xtare not affectedby θandsofactor out of alllikelihood ratios.
+3Theoptimalimportancesamplingdistributionforestimati ngthepartitionfunction/integraltextexp(−cθ(τ))dτ
+isq(τ)∝|exp(−cθ(τ))|=exp(−cθ(τ)). During guided cost learning, the sampling policy
+q(τ)is updated to match this distribution by minimizing the KL di vergence between q(τ)and
+1
+Zexp(−cθ(τ)), orequivalentlyminimizingthelearnedcost andmaximizin gentropy.
+Lsampler(q)=Eτ∼q[cθ(τ)]+Eτ∼q[logq(τ)] (2)
+Conveniently, this optimal sampling distribution is the de monstration distribution for the true cost
+function. Thus, this training procedure results in both a le arned cost function, characterizing the
+demonstration distribution, and a learned policy q(τ), capable of generating samples from the
+demonstrationdistribution.
+This importance sampling estimate can have very high varian ce if the sampling distribution qfails
+to cover some trajectories τwith high values of exp (−cθ(τ)). Since the demonstrations will have
+low cost (as a result of the IRL objective), we can address thi s coverage problem by mixing the
+demonstrationdatasampleswiththegeneratedsamples. Let µ=1
+2p+1
+2qbethemixturedistribution
+over trajectory roll-outs. Let /tildewidep(τ)be a rough estimate for the density of the demonstrations; fo r
+examplewe coulduse the currentmodel pθ, or we coulduse a simplerdensity modeltrainedusing
+anothermethod. Guidedcost learninguses µforimportancesampling3, with1
+2/tildewidep(τ)+1
+2q(τ)as the
+importanceweights:
+Lcost(θ)=Eτ∼p[cθ(τ)]+log/parenleftBigg
+Eτ∼µ/bracketleftBigg
+exp(−cθ(τ))
+1
+2/tildewidep(τ)+1
+2q(τ)/bracketrightBigg/parenrightBigg
+,
+2.4 DirectMaximum Likelihood and BehavioralCloning
+A simple approach to imitation learning and generative mode ling is to train a generator or policy
+to output a distribution over the data, without learning a di scriminator or energy function. For
+tractability,thedatadistributionistypicallyfactoriz edusingadirectedgraphicalmodelorBayesian
+network. In the ﬁeld of generative modeling, this approach h as most commonly been applied to
+speech and language generation tasks [23, 18], but has also b een applied to image generation [22].
+LikemostEBMs,thesemodelsaretrainedbymaximizingtheli kelihoodoftheobserveddatapoints.
+When a generative model does not have the capacity to represe nt the entire data distribution, max-
+imizing likelihood directly will lead to a moment-matching distribution that tries to “cover” all of
+themodes,leadingtoa solutionthatputsmuchofitsmassinp artsof thespacethathavenegligible
+probabilityunderthetruedistribution. Inmanyscenarios ,itispreferabletoinsteadproduceonlyre-
+alistic, highlyprobablesamples,by“ﬁllingin”asmanymod esaspossible,at thetrade-offoflower
+diversity. Since EBMs are also trained with maximum likelih ood, the energy function in an EBM
+will exhibit the same moment-matchingbehaviorwhen it has l imited capacity. However,designing
+aﬂexibleenergyfunctiontorepresentadistribution’sden sityfunctionisgenerallymucheasierthan
+designingatractablegeneratorwiththesameﬂexibility,t hatcantogeneratesampleswithoutacom-
+plexiterativeinferenceprocedure. Moreover,oncewe have a trainedenergyfunction,thegenerator
+is trained to be mode-seeking, by minimizing the KL divergen ce between the generator’s distribu-
+tion and the distribution induced by the energy function. As a result, even if the generator has the
+same capacity as a generativemodel trained with direct maxi mumlikelihood, the generatortrained
+withanEBMwillexhibitmode-seekingbehavioraslongasthe energyfunctionismoreﬂexiblethan
+thegenerator. Of course,thisphenomenonis oftenachieved at thecost oftractability,asgenerating
+samplesfromanenergyfunctionrequirestraininga generat orwhich,in the case ofIRL, is forward
+policyoptimization.
+In sequential decision-making domains, using direct maxim um likelihood is known as behavioral
+cloning,wherethepolicyistrainedwithsupervisedlearni ngtomatchtheactionsofthedemonstrat-
+ing agent, conditionedon the correspondingobservations. While this approach is simple and often
+effectiveforsmallproblems,themoment-matchingbehavio rofdirectmaximumlikelihoodcanpro-
+duce particularlyineffective trajectories because of com poundingerrors. When the policy makes a
+small mistake, it deviates from the state distribution seen during training, making it more likely to
+make a mistake again. This issue compoundsand eventually,t he agent reaches a state far from the
+3InRLsettings, where generatingsamples requires executin ga policyinthe real world,such asinrobotics,
+oldsamplesfromoldgeneratorsaretypicallyretainedfore fﬁciency. Inthiscase,thedensity qcanbecomputed
+using afusion distributionover the past generator densiti es.
+4training distribution and makes a catastrophic error [21]. Generativemodeling also faces this issue
+when generating variables sequentially. A popular approac h for handling this involves incremen-
+tallysamplingmorefromthemodelanddrawinglessfromthed atadistributionduringtraining[21].
+This requires that the true data distribution can be sampled from during training, correspondingto
+a human or algorithmic expert. Bengio et al. proposed an appr oximatesolution, termed scheduled
+sampling,that doesnotrequirequeryingthe datadistribut ion[3]. However,whilethese approaches
+alleviatetheissue, theydonotsolveit completely.
+3 GANsand IRL
+We now show how generative adversarial modeling has implici tly been applied to the setting of in-
+verse reinforcementlearning, where the data-to-be-model edis a set of expert demonstrations. The
+derivation requires a particular form of discriminator, wh ich we discuss ﬁrst in Section 3.1. After
+making this modiﬁcation to the discriminator, we obtain an a lgorithm for IRL, as we show in Sec-
+tion3.2,wherethediscriminatorinvolvesthe learnedcost andthegeneratorrepresentsthepolicy.
+3.1 Aspecial formofdiscriminator
+For a ﬁxed generator with a [typically unknown] density q(τ), the optimal discriminator is the fol-
+lowing[8]:
+D∗(τ)=p(τ)
+p(τ)+q(τ), (3)
+wherep(τ)istheactualdistributionofthedata.
+In the traditional GAN algorithm, the discriminator is trai ned to directly output this value. When
+the generator density q(τ)can be evaluated, the traditional GAN discriminator can be m odiﬁed
+to incorporate this density information. Instead of having the discriminator estimate the value of
+Equation3directly,it canbeusedtoestimate p(τ), ﬁllinginthevalueof q(τ)withitsknownvalue.
+Inthiscase,thenewformofthediscriminator Dθwithparameters θis
+Dθ(τ)=˜pθ(τ)
+˜pθ(τ)+q(τ).
+In order to make the connection to MaxEnt IRL, we also replace the estimated data density with
+the Boltzmanndistribution. As in MaxEntIRL, we write the en ergyfunctionas cθto designate the
+learnedcost. Nowthe discriminator’soutputis:
+Dθ(τ)=1
+Zexp(−cθ(τ))
+1
+Zexp(−cθ(τ))+q(τ).
+The resulting architecture for the discriminator is very si milar to a typical model for binary classi-
+ﬁcation, with a sigmoid as the ﬁnal layer and log Zas the bias of the sigmoid. We have adjusted
+the architecture only by subtracting log q(τ)from the input to the sigmoid. This modest change
+allowstheoptimaldiscriminatortobecompletelyindepend entofthegenerator: thediscriminatoris
+optimalwhen1
+Zexp(−cθ(τ))=p(τ). Independencebetweenthegeneratorandtheoptimaldiscri m-
+inatormaysigniﬁcantlyimprovethe stabilityoftraining.
+This change is very simple to implement and is applicable in a ny setting where the density q(τ)
+can be cheaply evaluated. Of course this is precisely the cas e where we could directly maximize
+likelihood, and we might wonder whether it is worth the addit ional complexity of GAN training.
+But the experience of researchers in IRL has shown that maxim izing log likelihood directly is not
+alwaysthemosteffectivewaytolearncomplexbehaviors,ev enwhenitispossibletoimplement. As
+wewillshow,thereisapreciseequivalencebetweenMaxEntI RLandthistypeofGAN,suggesting
+thatthesamephenomenonmayoccurinotherdomains: GANtrai ningmayprovideadvantageseven
+whenit wouldbepossibletomaximizelikelihooddirectly.
+3.2 Equivalence betweengenerativeadversarialnetworksa nd guided costlearning
+In thissection,we showthat GANs, when appliedto IRL proble ms,optimizethesame objectiveas
+MaxEntIRL,andinfactthevariantofGANsdescribedinthepr evioussectionispreciselyequivalent
+toguidedcost learning.
+5Recall thatthediscriminator’slossisequalto
+Ldiscriminator (Dθ)=Eτ∼p[−logDθ(τ)]+Eτ∼q[−log(1−Dθ(τ))]
+=Eτ∼p/bracketleftBigg
+−log1
+Zexp(−cθ(τ))
+1
+Zexp(−cθ(τ))+q(τ)/bracketrightBigg
++Eτ∼q/bracketleftBigg
+−logq(τ)
+1
+Zexp(−cθ(τ))+q(τ)/bracketrightBigg
+InmaximumentropyIRL,thelog-likelihoodobjectiveis:
+Lcost(θ)=Eτ∼p[cθ(τ)]+log/parenleftBigg
+Eτ∼1
+2p+1
+2q/bracketleftBigg
+exp(−cθ(τ))
+1
+2/tildewidep(τ)+1
+2q(τ)/bracketrightBigg/parenrightBigg
+(4)
+=Eτ∼p[cθ(τ)]+log/parenleftBigg
+Eτ∼µ/bracketleftBigg
+exp(−cθ(τ))
+1
+2Zexp(−cθ(τ))+1
+2q(τ)/bracketrightBigg/parenrightBigg
+, (5)
+where we have substituted /tildewidep(τ) =pθ(τ) =1
+Zexp(−cθ(τ)), i.e. we are using the current model to
+estimatethe importanceweights.
+We will establish the following facts, which together imply that GANs optimize precisely the Max-
+EntIRL problem:
+1. Thevalueof Zwhichminimizesthediscriminator’slossisanimportance- samplingestima-
+torforthe partitionfunction,asdescribedinSection2.3. 2.
+2. For this value of Z, the derivative of the discriminator’s loss with respect to θis equal to
+thederivativeoftheMaxEntIRLobjective.
+3. The generator’s loss is exactly equal to the cost cθminus the entropy of q(τ), i.e. the
+MaxEntpolicylossdeﬁnedin Equation2in Section2.3.2.
+Recall that µis the mixture distribution between pandq. Write/tildewideµ(τ) =1
+2Zexp(−cθ(τ))+1
+2q(τ).
+Note that when θandZare optimized,1
+Zexp(−cθ(τ))is an estimate for the density of p(τ), and
+hence/tildewideµ(τ)isanestimateforthedensityof µ.
+3.2.1Zestimatesthe partitionfunction
+We cancomputethediscriminator’sloss:
+Ldiscriminator (Dθ)=Eτ∼p/bracketleftBigg
+−log1
+Zexp(−cθ(τ))
+/tildewideµ(τ)/bracketrightBigg
++Eτ∼q/bracketleftbigg
+−logq(τ)
+/tildewideµ(τ)/bracketrightbigg
+(6)
+=logZ+Eτ∼p[cθ(τ)]+Eτ∼p[log/tildewideµ(τ)]−Eτ∼q[logq(τ)]+Eτ∼q[log/tildewideµ(τ)](7)
+=logZ+Eτ∼p[cθ(τ)]−Eτ∼q[logq(τ)]+2Eτ∼µ[log/tildewideµ(τ)]. (8)
+Onlytheﬁrstandlasttermsdependon Z. Attheminimizingvalueof Z,thederivativeoftheseterm
+withrespectto Zwill bezero:
+∂ZLdiscriminator (Dθ)=0
+1
+Z=Eτ∼µ/bracketleftBigg1
+Z2exp(−cθ(τ))
+/tildewideµ(τ)/bracketrightBigg
+Z=Eτ∼µ/bracketleftbiggexp(−cθ(τ))
+/tildewideµ(τ)/bracketrightbigg
+.
+Thus the minimizing Zis precisely the importance sampling estimate of the partit ion function in
+Equation4.
+3.2.2cθoptimizesthe IRLobjective
+We return to the discriminator’s loss as computed in Equatio n 8, and consider the derivative with
+respect to the parameters θ. We will show that this is exactly the same as the derivativeo f the IRL
+objective.
+6Only the second and fourth terms in the sum depend on θ. When we differentiate those terms we
+obtain:
+∂θLdiscriminator (Dθ)=Eτ∼p[∂θcθ(τ)]−Eτ∼µ/bracketleftBigg1
+Zexp(−cθ(τ))∂θcθ(τ)
+/tildewideµ(τ)/bracketrightBigg
+Ontheotherhand,whenwe differentiatetheMaxEntIRLobjec tive,weobtain:
+∂θLcost(θ)=Eτ∼p[∂θcθ(τ)]+∂θlog/parenleftbigg
+Eτ∼µ/bracketleftbiggexp(−cθ(τ))
+/tildewideµ(τ)/bracketrightbigg/parenrightbigg
+=Eτ∼p[∂θcθ(τ)]+/parenleftbigg
+Eτ∼µ/bracketleftbigg−exp(−cθ(τ))∂θcθ(τ)
+/tildewideµ(τ)/bracketrightbigg/slashbigg
+Eτ∼µ/bracketleftbiggexp(−cθ(τ))
+/tildewideµ(τ)/bracketrightbigg/parenrightbigg
+=Eτ∼p[∂θcθ(τ)]−Eτ∼µ/bracketleftBigg1
+Zexp(−cθ(τ))∂θcθ(τ)
+/tildewideµ(τ)/bracketrightBigg
+=∂θLdiscriminator (Dθ).
+Inthethirdequality,weusedthedeﬁnitionof Zasanimportancesamplingestimate. Notethatinthe
+secondequality,wehavetreated /tildewideµ(τ)asaconstantratherthanasaquantitythatdependson θ. This
+is because the IRL optimization is minimizing log Z=log∑τexp(−cθ(τ))and using/tildewideµ(τ)as the
+weightsforanimportancesamplingestimatorof Z. Forthispurposewedonotwanttodifferentiate
+throughtheimportanceweights.
+3.3 The generatoroptimizestheMaxEnt IRLobjective
+Finally,we computethegenerator’sloss:
+Lgenerator(q)=Eτ∼q[log(1−D(τ))−log(D(τ))]
+=Eτ∼q/bracketleftBigg
+logq(τ)
+/tildewideµ(τ)−log1
+Zexp(−cθ(τ))
+/tildewideµ(τ)/bracketrightBigg
+=Eτ∼q[logq(τ)+logZ+cθ(τ)]
+=logZ+Eτ∼q[cθ(τ)]+Eτ∼q[logq(τ)]=logZ+Lsampler(q).
+The term log Zis a parameter of the discriminator that is held ﬁxed while op timizingthe generator,
+thislossisexactlyequivalentthesamplerlossfromMaxEnt IRL,deﬁnedinEquation2.
+3.4 Discussion
+TherearemanyapparentdifferencesbetweenMaxEntIRLandt heGANoptimizationproblem. But,
+we have shown that after making a single key change—using a ge neratorq(τ)for which densities
+can be evaluated efﬁciently, and incorporating this inform ation into the discriminator in a natural
+way—generative adversarial networks can be viewed as a samp le-based algorithm for the MaxEnt
+IRLproblem. ByconnectingGANstotheempiricalliterature oninversereinforcementlearning[7],
+this demonstratesthat GAN training can improvethe quality of samples even when the generator’s
+density can be evaluated exactly. By generalizingthis conn ection, we can derive a new adversarial
+trainingstrategyforenergy-basedmodels,whichwediscus sinthe nextsection.
+4 GANsfortraining EBMs
+Now that we have highlighted the connection between GANs and guided cost learning, the appli-
+cation of GANs to EBMs follows directly. As discussed in Sect ion 2.2, the primary challenge in
+training EBMs is estimating the partition function, which i s done by approximatelysampling from
+thedistributioninducedbytheenergy Eθ. Tworecentpapershaveproposedtouseadversarialtrain-
+ing to derive fast estimates of the partition function [12, 2 5]. In particular, these methods alternate
+between training a generator to produce samples with minima l energyEθ(x), and optimizing the
+parametersoftheenergyfunctionusingthe samplestoestim ate thepartitionfunction.
+7When the density of the generatoris available, however, we c an derive an unbiased estimate of the
+partitionfunctionas
+Z=Ex∼µ/bracketleftBigg
+exp(−Eθ(x))
+1
+2/tildewidep(x)+1
+2q(x)/bracketrightBigg
+whereµdenotesan equalmixtureof generatedandreal data points, q(x)denotesthe densityunder
+thegenerator,and /tildewidep(x)denotesanestimate forthe datadensity.
+Thisgivesa lossfunction
+Lenergy(θ)=Ex∼p[−logpθ(x)]
+=Ex∼p[−Eθ(x)]−log/parenleftBigg
+Ex∼µ/bracketleftBigg
+exp(−Eθ(x))
+1
+2/tildewidep(x)+1
+2q(x)/bracketrightBigg/parenrightBigg
+.
+Asbefore,thegeneratorisupdatedtominimizeenergyandma ximizeentropy:
+Lgenerator(q)=Ex∼q[Eθ(x)]+Ex∼q[logq(x)]
+If we set/tildewidep(x)=pθ(x), the resulting model is a special case of a GAN which is straig htforwardto
+implement. Thediscriminator’soutputis σ(Eθ(x)−logq(x)),whereσisasigmoidwithatrainable
+bias. The discriminator’s loss is the log probability and th e generator’s loss is the discriminator’s
+logodds,asdeﬁnedin Section2.1.
+Kim & Bengio proposed a similar energy-basedmodel for gener ative image modeling, but did not
+assume they could compute the generator’s density [12]. As a result, they do not use importance
+weights, and work with a biased estimator of the partition fu nction which converges to the true
+partition function when the generator correctly samples fr om the energy-based model. In contrast,
+by using the generator density, we can get an unbiased estima te of the partition function that does
+notrelyon anyassumptionsaboutthegenerator. Thus,eveni f the generatorcannotlearnto sample
+exactlyfromthe datadistribution,ourtrainingprocedure isconsistent.
+Zhao et al. also proposed an energy-based GAN model with an au toencoder discriminator where
+the energyisgivenbythemean-squarederrorbetweenthedat a example(generatedorreal) andthe
+discriminator’s reconstruction [25]. The energy function is optimized with a margin loss, and the
+generator is trained to minimize energy. This method also di d not use the form of discriminator
+presented above. An interesting direction for future explo rationis to consider combiningthe GAN
+trainingalgorithmdiscussedherewithanobjectiveothert hanlog-likelihood,suchasoneusedwith
+EBMs[14]ordifferent f-divergencesusedwith GANs[17].
+5 Related Work
+Ho et al. [10, 9] previously presented a GAN-like algorithm f or imitation learning, where the goal
+istorecoverapolicythatmatchestheexpertdemonstration s. Theproposedalgorithm,calledgener-
+ative adversarial imitation learning (GAIL), has an advers arial structure. The analysis in this paper
+providesadditionalinsightintowhat GAILis doing. Asdisc ussedabove,GANsare optimizingthe
+same objective as MaxEnt IRL. Thus, the GAIL policy is being t rained to optimize a cost learned
+throughMaxEntIRL.Unlikeguidedcostlearning[7],howeve r,Ho&Ermonusethetypicaluncon-
+strained form of the discriminator [9] and do not use the gene rator’s density. In this case, the cost
+function remains implicit within the discriminator and can not be recovered. Hence, in GAIL, the
+discriminatorisdiscardedandthepolicyis theendresult.
+Bachman & Precup [1] suggested that data generation can be co nverted into a sequential decision-
+making problem and solved with a reinforcement learning met hod. Several recent works have pro-
+posedmethodsformergingmaximumlikelihoodobjectivesan dknownrewardfunctionsfortraining
+sequential language generation models and rely on surrogat e reward function such as BLEU score
+oreditdistance[20,16, 2]. Inthiswork,we assumethatthe r ewardfunctionisunknown.
+Yuetal. proposedtolearnacostfunctionforsequentialdat agenerationusingGANs,wherethecost
+isdeﬁnedastheprobabilityofthediscriminatorclassifyi ngthegeneratedsequenceascomingfrom
+the data distribution [24]. The discriminatordoes not take advantageof the policy’sdensity values,
+despite the fact that they are known(and are used duringpre- training). Their experimentsalso ﬁnd
+8that max-likelihood pre-training is crucial for good perfo rmance, suggesting that recurrent genera-
+tors that can’t afford such pre-training (e.g. because they don’t have densities) are less practical to
+train.
+Pfau & Vinyals drew a connection between the optimization pr oblems in GANs and actor-critic
+methods in reinforcement learning, suggesting how ideas fo r stabilizing training in one domain
+couldbe beneﬁcialfor the other [19]. As the authorspointou t, these optimizationtrickscouldalso
+beusefulforimitationlearningalgorithmswiththesame tw o-leveloptimizationstructure.
+6 Discussion
+In this work, we showed an equivalencebetween generativead versarialmodelingand an algorithm
+for performing maximum entropy inverse reinforcement lear ning. Our derivation used a special
+form of discriminator that leverages likelihood values fro m the generator, leading to an unbiased
+estimate of the underlying energy function. A natural direc tion for future work is to experiment
+with combining deep generators that can provide densities, such as autoregressive models [13, 22]
+or models that use invertible transformations [6], with gen erative adversarial modeling. Such an
+approach may provide more stable training, better generato rs, and wider applicability to discrete
+problemssuchaslanguage.
+This work also suggests a new algorithm for training energy- based models using generative adver-
+sarial networks, that trains a neural network model to sampl e from the distribution induced by the
+current energy. This method could reduce the computational challenges of existing MCMC-based
+solutions.
+Acknowledgments
+Theauthorswouldliketo thankIanGoodfellowandJoanBruna forinsightfuldiscussions.
+References
+[1] P. Bachman and D. Precup. Data generation as sequential d ecision making. In Neural Infor-
+mationProcessingSystems(NIPS) ,2015.
+[2] D.Bahdanau,P.Brakel,K.Xu,A.Goyal,R.Lowe,J.Pineau ,A.Courville,andY.Bengio. An
+actor-criticalgorithmforsequenceprediction. arXivpreprintarXiv:1607.07086 ,2016.
+[3] S. Bengio,O. Vinyals, N. Jaitly, and N. Shazeer. Schedul edsampling forsequenceprediction
+withrecurrentneuralnetworks. In NeuralInformationProcessingSystems(NIPS) ,2015.
+[4] A. Boularias, J. Kober, and J. Peters. Relative entropy i nverse reinforcement learning. In
+InternationalConferenceonArtiﬁcialIntelligenceandSt atistics(AISTATS) ,2011.
+[5] S.BoydandL.Vandenberghe. Convexoptimization,2004.
+[6] L. Dinh, J. Sohl-Dickstein, and S. Bengio. Density estim ation using real nvp. arXiv preprint
+arXiv:1605.08803 ,2016.
+[7] C. Finn, S. Levine, and P. Abbeel. Guided cost learning: D eep inverse optimal control via
+policyoptimization. InternationalConferenceonMachineLearning(ICML) ,2016.
+[8] I. Goodfellow, J. Pouget-Abadie, M. Mirza, B. Xu, D. Ward e-Farley, S. Ozair, A. Courville,
+andY.Bengio. Generativeadversarialnets. In NeuralInformationProcessingSystems(NIPS) ,
+2014.
+[9] J.HoandS.Ermon. Generativeadversarialimitationlea rning.NeuralInformationProcessing
+Systems(NIPS) ,2016.
+[10] J. Ho, J. K. Gupta, and S. Ermon. Model-freeimitation le arning with policy optimization. In
+InternationalConferenceonMachineLearning(ICML) ,2016.
+[11] M.Kalakrishnan,P.Pastor,L.Righetti,andS.Schaal. Learningobjectivefunctionsformanip-
+ulation. In InternationalConferenceonRoboticsandAutomation(ICRA ),2013.
+9[12] T.KimandY.Bengio. Deepdirectedgenerativemodelswi thenergy-basedprobabilityestima-
+tion.ICLRWorkshopTrack , 2016.
+[13] H.LarochelleandI.Murray. Theneuralautoregressive distributionestimator. In International
+ConferenceonArtiﬁcialIntelligenceandStatistics(AIST ATS),2011.
+[14] Y. LeCun, S. Chopra, R. Hadsell, M. Ranzato, and F. Huang . A tutorial on energy-based
+learning. Predictingstructureddata ,1:0,2006.
+[15] A. Ng, S. Russell, et al. Algorithms for inverse reinfor cement learning. In International
+ConferenceonMachineLearning(ICML) , 2000.
+[16] M. Norouzi, S. Bengio, Z. Chen, N. Jaitly, M. Schuster, Y . Wu, and D. Schuurmans. Reward
+augmentedmaximumlikelihoodforneuralstructuredpredic tion.NeuralInformationProcess-
+ingSystems(NIPS) ,2016.
+[17] S. Nowozin, B. Cseke, and R. Tomioka. f-gan: Training ge nerative neural samplers using
+variationaldivergenceminimization. NeuralInformationProcessingSystems(NIPS) ,2016.
+[18] A. v. d. Oord, S. Dieleman, H. Zen, K. Simonyan, O. Vinyal s, A. Graves, N. Kalchbrenner,
+A. Senior, and K. Kavukcuoglu. Wavenet: A generative model f or raw audio. arXiv preprint
+arXiv:1609.03499 ,2016.
+[19] D. Pfau and O. Vinyals. Connectinggenerativeadversar ialnetworksand actor-criticmethods.
+arXivpreprintarXiv:1610.01945 ,2016.
+[20] M. Ranzato, S. Chopra, M. Auli, and W. Zaremba. Sequence level training with recurrent
+neuralnetworks. InternationalConferenceonLearningRepresentations(IC LR),2016.
+[21] S.Ross,G.Gordon,andA.Bagnell.Areductionofimitat ionlearningandstructuredprediction
+tono-regretonlinelearning. JournalofMachineLearningResearch ,15,2011.
+[22] A. van den Oord, N. Kalchbrenner, and K. Kavukcuoglu. Pi xel recurrent neural networks.
+InternationalConferenceonMachineLearning(ICML) ,2016.
+[23] Y.Wu,M.Schuster,Z.Chen,Q.V.Le,M.Norouzi,W. Mache rey,M.Krikun,Y.Cao,Q.Gao,
+K. Macherey, et al. Google’s neural machine translation sys tem: Bridging the gap between
+humanandmachinetranslation. arXiv preprintarXiv:1609.08144 ,2016.
+[24] L. Yu, W. Zhang, J. Wang, and Y. Yu. Seqgan: Sequence gene rative adversarial nets with
+policygradient. arXivpreprintarXiv:1609.05473 ,2016.
+[25] J. Zhao, M. Mathieu, and Y. LeCun. Energy-based generat ive adversarial network. arXiv
+preprintarXiv:1609.03126 ,2016.
+[26] B. Ziebart. Modeling purposeful adaptive behavior with the principle o f maximum causal
+entropy. PhD thesis,CarnegieMellonUniversity,2010.
+[27] B. Ziebart, A. Maas, J. A. Bagnell, and A. K. Dey. Maximum entropy inverse reinforcement
+learning. In AAAIConferenceonArtiﬁcialIntelligence ,2008.
+10
