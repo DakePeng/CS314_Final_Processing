@@ -100,5 +100,5 @@ def main(input_folder, output_csv):
 
 if __name__ == "__main__":
     input_folder = "./OpenAI_Research_Text/"  # Update this with the path to your text files
-    output_csv = "verb_noun_pairs_frequency.csv"  # Update this with the desired output CSV path
+    output_csv = "verb_noun_pairs.csv"  # Update this with the desired output CSV path
     main(input_folder, output_csv)
