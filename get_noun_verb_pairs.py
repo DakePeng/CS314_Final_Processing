@@ -80,7 +80,7 @@ def save_to_csv(list, output_path):
     Save the frequency of verb-noun phrase pairs to a CSV file with separate columns for verbs and noun phrases.
     """
     header = ["Source", "Sentence", "Root Noun", "Root Verb", "Noun Phrase","Verb Phrase"]
-    with open(output_path, mode='w', newline='\n') as file:
+    with open(output_path, mode='w', encoding='utf-8', newline='\n') as file:
         writer = csv.writer(file, escapechar='\\', quoting=csv.QUOTE_MINIMAL)
         writer.writerow(header)  # Write the header
         writer.writerows(list)   # Write the data

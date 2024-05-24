@@ -46,7 +46,7 @@ with open('verb_noun_pairs.csv', newline='') as csvfile:
                 
 output_file_path = 'verb_noun_pair_frequency.csv'
 
-with open(output_file_path, 'w', newline='') as csvfile:
+with open(output_file_path, 'w', encoding='utf-8', newline='\n') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(['Pair', 'Count', 'RowsInPairTable'])
     for pair, count in pairs_counter.items():
