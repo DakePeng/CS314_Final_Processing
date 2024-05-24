@@ -2,8 +2,9 @@
 
 Written by Dake Peng, Carleton College, S24
 
-For the Final Project of CS 314: Data Visualization offered in Spring 2024; 
-Joint project with the reasearch project AI Cognition:https://github.com/DakePeng/AICognition
+For the Final Project of CS 314: Data Visualization offered in Spring 2024, taught by Prof. Eric Alexander
+
+Joint (sub-) project with the reasearch project [AI Cognition](https://github.com/DakePeng/AICognition), by Dake Peng and Prof. Jay McKinney
 
 ## Prerequisites:
 
