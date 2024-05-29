@@ -24,12 +24,12 @@ nlp = spacy.load("en_core_web_sm")
 def get_subtree_string(token):
     return ' '.join([t.text for t in token.subtree])
 
-def get_noun_root(tokens):
+def get_nouns(tokens):
     # Find the first noun in the tokens
     for token in tokens:
         if token.pos_ in ["NOUN", "PROPN", "PRON"]:
-            return token.lemma_
-    return ""
+            return token, token.lemma_
+    return "", ""
 
 def get_root_and_subtrees(root):
     # Get the left subtree as a string
@@ -40,9 +40,9 @@ def get_root_and_subtrees(root):
     right_subtree = [child for child in root.rights]
     right_subtree_str = ' '.join([get_subtree_string(child) for child in right_subtree]) if right_subtree else ""
     
-    root_noun = get_noun_root(left_subtree)
+    original_noun, root_noun = get_nouns(left_subtree)
 
-    return  left_subtree_str, root_noun, root.text + " " + right_subtree_str, root.lemma_
+    return  left_subtree_str, root_noun, root.text + " " + right_subtree_str, root.lemma_, original_noun, root
 
 def extract_verb_noun_pairs(source, doc):
     """
@@ -54,9 +54,9 @@ def extract_verb_noun_pairs(source, doc):
         sent_doc = nlp(sentence.text)
         for token in sent_doc:
             if token.pos_ == "VERB" and token.dep_ in ("ROOT", "acl", "advcl", "ccomp", "xcomp"):
-                np, rootn, vp, rootv = get_root_and_subtrees(token)
+                np, rootn, vp, rootv, originaln, originalv = get_root_and_subtrees(token)
                 if rootn == "" or rootv == "": continue
-                line.append([source, sentence.text, rootn, rootv, np,vp])
+                line.append([source, sentence.text, rootn, rootv, np, vp, originaln, originalv])
     return line
 
 def process_files(file_list):
@@ -71,15 +71,16 @@ def process_files(file_list):
             # Extract the file name without the extension
             file_name = os.path.splitext(os.path.basename(file_path))[0]
             # Construct the URL
-            arxiv_url = f"https://arxiv.org/pdf/{file_name}"
-            list.extend(extract_verb_noun_pairs(arxiv_url, doc))
+            url = f"https://arxiv.org/pdf/{file_name}"
+            if any(char.isalpha() for char in file_name): url = f"https://cdn.openai.com/papers/{file_name}"
+            list.extend(extract_verb_noun_pairs(url, doc))
     return list
 
 def save_to_csv(list, output_path):
     """
     Save the frequency of verb-noun phrase pairs to a CSV file with separate columns for verbs and noun phrases.
     """
-    header = ["Source", "Sentence", "Root Noun", "Root Verb", "Noun Phrase","Verb Phrase"]
+    header = ["Source", "Sentence", "Root Noun", "Root Verb", "Noun Phrase","Verb Phrase", "Original Noun", "Original Verb"]
     with open(output_path, mode='w', encoding='utf-8', newline='\n') as file:
         writer = csv.writer(file, escapechar='\\', quoting=csv.QUOTE_MINIMAL)
         writer.writerow(header)  # Write the header
