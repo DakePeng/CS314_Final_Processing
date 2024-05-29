@@ -42,7 +42,7 @@ For now, the _freq_threshhold_ in _get_single_word_frequency.py_ is set to 5, me
 
 ### verb_noun_pairs.csv
 
-This file contains 6 columns: [Source,Sentence,Root Noun,Root Verb,Noun Phrase, Verb Phrase, Original Noun,Original Verb]
+This file contains 8 columns: [Source,Sentence,Root Noun,Root Verb,Noun Phrase, Verb Phrase, Original Noun,Original Verb]
 
 For each verb in each sentence, Natural Language Processing is done to obtain the Noun Phrase and the Verb Phrase that the verb is involved in. 
 
