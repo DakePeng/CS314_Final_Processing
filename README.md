@@ -42,13 +42,27 @@ For now, the _freq_threshhold_ in _get_single_word_frequency.py_ is set to 5, me
 
 ### verb_noun_pairs.csv
 
-This file contains 6 columns: [Source,Sentence,Root Noun,Root Verb,Noun Phrase,Verb Phrase]
+This file contains 6 columns: [Source,Sentence,Root Noun,Root Verb,Noun Phrase, Verb Phrase, Original Noun,Original Verb]
 
-For each verb in each document, Natural Language Processing is done to obtain the Noun Phrase and the Verb Phrase that the verb is involved in. 
+For each verb in each sentence, Natural Language Processing is done to obtain the Noun Phrase and the Verb Phrase that the verb is involved in. 
 
-Then, the Root Noun and Root Verb (uninflected tense) are found.
+**Source** is a link to the article that contains this sentence.
 
-This information is then logged as a row in this csv file along with the entire sentence the word comes from and a link to the source of this 
+**Sentence** is the text of the sentence containing the verb and noun selected
+
+**Root Noun** is the root form of the head noun that the verb modifies, it is usually in the first person singular form
+
+**Root Verb** is the root form of the verb, it is usually in the infinitive form
+
+**Noun Phrase** is the entire noun phrase that the verb modifies
+
+**Verb Phrase** is the entire verb phrase that the verb modifies, which includes the object
+
+**Original Noun** is the head noun as it is. It may be in plural form, 3rd person, etc.
+
+**Original Verb** is the head verb as it is. It may be in past tense, 3rd person tense, etc.
+
+**Note that none of the text in this file is perfect, as there are glitches to the NLP programs that we are using**
 
 For more information on how the Phrases and Heads are generated, check the comments on _get_noun_verb_pairs.py_
 
